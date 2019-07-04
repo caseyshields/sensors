@@ -11,7 +11,8 @@ const db = 'simulation';
 
 try {
     // helloCouch( );
-    uploadSimulation();
+    // uploadSimulation();
+    bufferPages();
 } catch (error) {
     console.log(error);
 }
@@ -150,4 +151,71 @@ function uploadSimulation() {
             // TODO use timestamp and source as an id?
         }
     }
+}
+
+// A pagination recipe from https://docs.couchdb.org/en/stable/ddocs/views/pagination.html
+// might be a useful way to buffer the event timeline
+async function bufferPages() {
+    try {
+        let data = [];
+        let page = await getPage(10);
+        let total = 0;
+        do {
+            let events = JSON.parse(page);
+            total = events.total_rows;
+
+            for (event of events.rows)
+                data.push( event.doc)
+            data.pop();// the last item is just to get the next page boundary...
+
+            let startkey = events.rows[events.rows.length-1].key;
+            page = await getPage(10, JSON.stringify(startkey) );
+
+        } while (data.length < total);
+        console.log( data );
+    } catch(error) {
+        console.log(error);
+    }
+}
+
+function getPage( count, startkey ) {
+    return new Promise( (resolve, reject) => {
+
+        // Options for CouchDB REST API
+        const ddoc='stream'; // design document
+        const view='chronological'; // view
+        const options = {
+            hostname,
+            port,
+            path: `/${db}/_design/${ddoc}/_view/${view}?limit=${count+1}&include_docs=true`,
+            method: 'GET',
+
+        };
+
+        if (startkey)
+            options.path += ('&start_key='+startkey);
+
+        // Use Node HTTP module to make a couch view query
+        const request = http.request(options, response => {
+            let buffer = '';
+            // buffer the http response
+            response.on('data', (d)=>{buffer += d;} );
+
+            // invoke success or failure callback depending on the status code
+            response.on('end', ()=> {
+                if(response.statusCode > 400)
+                    reject( buffer )
+                resolve( buffer );
+            } ); // TODO probably should include the header as well...
+        });
+        
+        // if something went wrong, call the failure call back
+        request.on('error', error => 
+        reject( error )
+        );
+        
+        request.end();
+    });
+
+    
 }
