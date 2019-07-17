@@ -4,83 +4,104 @@ const Simulator = require( './simulator/simulator.js' );
 
 const hostname = '127.0.0.1';
 const port = 5984;
-const auth = process.argv[0];
-const db = 'simulation';
+const db = process.argv[2]
+const auth = process.argv[3];
 
 //TODO I'm just messing with the CouchDB REST API, I should probably use something like nano or pouch...
+(async function main() {
+    try {
+        // get the available databases
+        console.log('Available Couch databases;')
+        let dbs = await available();
+        console.log(dbs);
 
-try {
-    // helloCouch( );
-    // uploadSimulation();
-    bufferPages();
-} catch (error) {
-    console.log(error);
-}
+        // if CouchDB doesn't contain the given database, we create it
+        if (!dbs.includes(db)) {
+            console.log(`Creating ${db}`);
+            console.log( await createDatabase(auth, db) );
+        }
 
-function helloCouch( callback ) {
-    let buffer = '';
-
-    // CouchDB HTTP request for available databases
-    const options = {
-        hostname,
-        port,
-        path: '/_all_dbs',
-        method: 'GET'
-    };
-    const request = http.request(options, response => {
-        console.log(`statusCode: ${response.statusCode}`)
+        // check if the time index exists
+        let name = 'time_index';
+        let indices = await getIndex(db, name);
+        console.log( indices );
+        if (!indices.indexes.find((i)=>i.name==name)) {
+            console.log( `No index named '${name}'` );
+            //TODO create index
+        }
         
-        // accumulate couch response
-        response.on('data', (d)=>{buffer += d;} );
+        // await uploadSimulation( db );
 
-        // response complete
-        response.on('end', ()=>{
-            console.log('response ended')
-            process.stdout.write(buffer);
-
-            // if CouchDB doesn't contain the given database, we create it
-            let databases = JSON.parse(buffer);
-            if (!databases.includes(db))
-                createDatabase(db);
-
-            //callback();
-        });
-    });
-    
-    request.on('error', error => {
-        console.error(error);
-    });
-    
-    request.end( ()=>{
-        console.log('request ended');
-        //callback();
-    });
-}
-
-function createDatabase( name ) {
-
-    const options = {
-        hostname,
-        port,
-        auth,
-        path: `/${name}`,
-        method: 'PUT'
-    };
-    const request = http.request(options, response => {
-        console.log(`statusCode: ${response.statusCode}`)
-        response.on('data', d=>{
-            process.stdout.write(d);
-        });
-    });
-
-    request.on('error', error=> {
+        // bufferPages();
+    } catch (error) {
         console.log(error);
-    });
+    }
+})();
 
-    request.end();
+async function available() {
+    return await request({
+        hostname, port,
+        method: 'GET',
+        path: '/_all_dbs'
+    });
 }
 
-function uploadSimulation() {
+async function createDatabase( auth, db ) {
+    return await request({
+        hostname, port, auth,
+        method: 'PUT',
+        path: `/${db}`
+    });
+}
+
+async function getIndex(db, index) {
+    return await request({
+        hostname, port,
+        method: 'GET',
+        path: `/${db}/_index`
+    })
+}
+
+async function createIndex( auth, db, fields ) {
+    return await request({
+        hostname, port, auth,
+        method: 'POST',
+        path: `/${db}/_index`
+    });
+}
+
+/** Asynchronously requests json from an API */
+function request(options) {
+    return new Promise( (resolve, reject) => {
+        buffer = '';
+        const request = http.request(options, response => {
+            response.on('data', (d)=>{buffer+=d} );
+            response.on('end', ()=>{
+                let json = JSON.parse(buffer);
+                if (response.statusCode>400)
+                    reject(json);
+                resolve(json); 
+            });
+            response.on('error', (e)=>reject(e))
+        });
+        request.on('error', (e)=>reject(e));
+        request.end();
+    });
+}
+// TODO I can't figure out how to make this work with async/await...
+// async function xrequest(options) {
+//     buffer = '';
+//     const request = http.request(options, response => {
+//         console.log(`statusCode: ${response.statusCode}`)
+//         response.on('data', (d)=>{buffer+=d} );
+//         response.on('end', ()=>{return JSON.parse(buffer);} )
+//         response.on('error', (error)=>{console.log(error); throw error;})
+//     });
+//     request.on('error', error=> {console.log(error); throw error;});
+//     request.end();
+// }
+
+function uploadSimulation( db ) {
     // load the configuration
     let config = {
         start : Date.now(),
@@ -88,24 +109,24 @@ function uploadSimulation() {
         dt : 100,
         path : './data/test.json',
         laydown: [
-            { class:"hq", parent: "", type:"headquarters", status:1, sic:11 },
+            { class:"hq", tap:"a", parent: "", type:"headquarters", status:1, sic:11 },
             
-            { class:"d1", parent : "hq", type:"command", status:1, latency:0.005, sic:9 },
-            { class:"d2", parent : "hq", type:"command", status:1, latency:0.005, sic:10 },
+            { class:"d1", tap:"b", parent : "hq", type:"command", status:1, latency:0.005, sic:9 },
+            { class:"d2", tap:"c", parent : "hq", type:"command", status:1, latency:0.005, sic:10 },
 
-            { class:"r1", parent : "d1", type:"router", status:1, latency:0.005, sic:6 },
-            { class:"r2", parent : "d2", type:"router", status:1, latency:0.005, sic:7 },
-            { class:"r3", parent : "r2", type:"router", status:1, latency:0.005, sic:8 },
+            { class:"r1", tap:"d", parent : "d1", type:"router", status:1, latency:0.005, sic:6 },
+            { class:"r2", tap:"e", parent : "d2", type:"router", status:1, latency:0.005, sic:7 },
+            { class:"r3", tap:"f", parent : "r2", type:"router", status:1, latency:0.005, sic:8 },
             
-            { class:"s1", parent : "r1", type:"sensor", glyph:"glyph1", sic:1, status: 1,
+            { class:"s1", tap:"g", parent : "r1", type:"sensor", glyph:"glyph1", sic:1, status: 1,
                     lat:35.942, lon:-114.882, spin:10.0, latency:0.005 },
-            { class:"s2", parent : "r1", type:"sensor", glyph:"glyph2", sic:2, status: 1,
+            { class:"s2", tap:"h", parent : "r1", type:"sensor", glyph:"glyph2", sic:2, status: 1,
                     lat:36.242, lon:-115.678, spin:10.0, latency:0.005 },
-            { class:"s3", parent : "r2", type:"sensor", glyph:"glyph3", sic:3, status: 1,
+            { class:"s3", tap:"i", parent : "r2", type:"sensor", glyph:"glyph3", sic:3, status: 1,
                     lat:35.942, lon:-115.493, spin:10.0, latency:0.005 },
-            { class:"s4", parent : "r3", type:"sensor", glyph:"glyph4", sic:4, status: 1,
+            { class:"s4", tap:"j", parent : "r3", type:"sensor", glyph:"glyph4", sic:4, status: 1,
                     lat:36.291, lon:-114.704, spin:10.0, latency:0.005 },
-            { class:"s5", parent : "r3", type:"sensor", glyph:"glyph5", sic:5, status: 1,
+            { class:"s5", tap:"k", parent : "r3", type:"sensor", glyph:"glyph5", sic:5, status: 1,
                     lat:36.651, lon:-115.188, spin:10.0, latency:0.005 }
         ]
     };
