@@ -11,7 +11,7 @@ const auth = process.argv[3];
 (async function main() {
     try {
         // get the available databases
-        console.log('Available Couch databases;')
+        console.log('Available Couch databases');
         let dbs = await available();
         console.log(dbs);
 
@@ -27,7 +27,15 @@ const auth = process.argv[3];
         console.log( indices );
         if (!indices.indexes.find((i)=>i.name==name)) {
             console.log( `No index named '${name}'` );
-            //TODO create index
+            console.log( await createIndex( auth, db, {
+                index:{
+                    fields: ['stamp']
+                },
+                name,
+                type:'json'
+            } ) );
+            // For documentation look on the local couch server;
+            // see http://127.0.0.1:5984/_utils/docs/api/database/find.html#db-index
         }
         
         // await uploadSimulation( db );
@@ -62,16 +70,21 @@ async function getIndex(db, index) {
     })
 }
 
-async function createIndex( auth, db, fields ) {
+async function createIndex( auth, db, index ) {
+    const content = JSON.stringify(index);
     return await request({
         hostname, port, auth,
         method: 'POST',
-        path: `/${db}/_index`
-    });
+        path: `/${db}/_index`,
+        headers: {
+            'Content-Type' : 'application/json',
+            'Content-Length' : content.length
+        }
+    }, content);
 }
 
 /** Asynchronously requests json from an API */
-function request(options) {
+function request(options, content) {
     return new Promise( (resolve, reject) => {
         buffer = '';
         const request = http.request(options, response => {
@@ -85,6 +98,8 @@ function request(options) {
             response.on('error', (e)=>reject(e))
         });
         request.on('error', (e)=>reject(e));
+        if(content)
+            request.write( content );
         request.end();
     });
 }
