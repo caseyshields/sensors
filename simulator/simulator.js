@@ -6,6 +6,8 @@ const Sensor = require('./sensor.js');
 // Node export
 module.exports = create;
 
+// TODO rather than assuming the network is a tree, we need to be able to handle graph topologies...
+
 /** Creates a simulator for a sensor network
  * @param {Object} network - a D3 hierarchy which describes the network which the sensors are connected to
  * @param {Object} config - a configuration object containing simulator parameters
@@ -116,6 +118,7 @@ function create( network, config ) {
                 target : source.parent.id,
                 source : source.id,
                 sic : source.data.sic,
+                tap : source.data.tap,
                 // class : source.data.class // originator should supply class
             };
         
