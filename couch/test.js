@@ -56,9 +56,11 @@ console.log( `{db:'${db}', auth:'${auth}'}` );
             let config = getSimulationConfig();
             await uploadSimulation(db, config);
             console.log(
-`The database at http://${host}:${port}/${db} is initialized using the following simlator configuration;
+`The database at http://${host}:${port}/${db} is initialized using the following configuration;
 ${JSON.stringify(config,null,' ')}\n`
             );
+            //TODO pushing individual documents is very slow, might want to consider bulk operations if that ever becomes an issue...
+            // https://docs.couchdb.org/en/stable/api/database/bulk-api.html#inserting-documents-in-bulk
         }
 
         // TODO test a paging strategy by reading the database...
@@ -114,34 +116,9 @@ async function uploadSimulation( db, config ) {
 
         // post each event to the couch database...
         for (let event of frame) {
-            // console.log( data );
+            console.log( event );
             let result = await cdb.postDoc(db, event);
-            console.log( JSON.stringify(result, null, ' ') );
-
-            // const data = JSON.stringify( event );
-            // const options = {
-            //     hostname,
-            //     port,
-            //     path: '/'+db,
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //         'Content-Length': data.length
-            //     }
-            // };
-
-            // let reply = ''
-            // const request = http.request(options, response=>{
-            //     response.on('data', (d)=>(reply+=d) );
-            //     response.on('end', ()=>console.log(reply) );
-            // });
-
-            // request.on('error', error=>console.error(error) );
-
-            // request.write(data);
-
-            // request.end();
-            // TODO use timestamp and source as an id?
+            //console.log( JSON.stringify(result, null, ' ') );
         }
     }
 }
