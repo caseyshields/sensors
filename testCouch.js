@@ -7,7 +7,8 @@ const port = 5984;
 const db = process.argv[2]
 const auth = process.argv[3];
 
-//TODO I'm just messing with the CouchDB REST API, I should probably use something like nano or pouch...
+console.log( `{db:'${db}', auth:'${auth}'}` );
+
 (async function main() {
     try {
         // get the available databases
@@ -25,6 +26,8 @@ const auth = process.argv[3];
         let name = 'time_index';
         let indices = await getIndex(db, name);
         console.log( indices );
+
+        // create it if it doesn't
         if (!indices.indexes.find((i)=>i.name==name)) {
             console.log( `No index named '${name}'` );
             console.log( await createIndex( auth, db, {
@@ -34,10 +37,19 @@ const auth = process.argv[3];
                 name,
                 type:'json'
             } ) );
-            // For documentation look on the local couch server;
+            // For documentation on index definitions, see the local couch server;
             // see http://127.0.0.1:5984/_utils/docs/api/database/find.html#db-index
         }
         
+        // check if the database already has any documents in it
+        let docs = await find(db, {
+            selector:{
+                time: {$gt:0}
+            },
+            limit:1
+        });
+        console.log( JSON.stringify(docs) );
+
         // await uploadSimulation( db );
 
         // bufferPages();
@@ -83,6 +95,31 @@ async function createIndex( auth, db, index ) {
     }, content);
 }
 
+async function pushDocument( db, doc ) {
+    const content = JSON.stringify( doc );
+    return await request({
+        hostname, port, path: '/'+db,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': content.length
+        }
+    }, content);
+}
+
+async function find(db, query) {
+    const content = JSON.stringify( query );
+    return await request({
+        hostname, port,
+        path: `/${db}/_find`,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': content.length
+        }
+    }, content);
+}
+
 /** Asynchronously requests json from an API */
 function request(options, content) {
     return new Promise( (resolve, reject) => {
@@ -102,7 +139,7 @@ function request(options, content) {
             request.write( content );
         request.end();
     });
-}
+} //TODO I'm just messing with the CouchDB REST API, I should probably use something like nano or pouch...
 // TODO I can't figure out how to make this work with async/await...
 // async function xrequest(options) {
 //     buffer = '';
