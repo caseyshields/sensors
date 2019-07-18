@@ -1,6 +1,6 @@
 const d3_hierarchy = require( 'd3-hierarchy');
 const http = require( 'http' );
-const Simulator = require( './simulator/simulator.js' );
+const Simulator = require( '../simulator/simulator.js' );
 
 const hostname = '127.0.0.1';
 const port = 5984;
@@ -41,14 +41,19 @@ console.log( `{db:'${db}', auth:'${auth}'}` );
             // see http://127.0.0.1:5984/_utils/docs/api/database/find.html#db-index
         }
         
-        // check if the database already has any documents in it
-        let docs = await find(db, {
+        // find out if the database already has any documents in it
+        let response = await find(db, {
             selector:{
                 time: {$gt:0}
             },
             limit:1
-        });
-        console.log( JSON.stringify(docs) );
+        }); // syntax for these queries is on the local server at;
+        // http://127.0.0.1:5984/_utils/docs/api/database/find.html#db-find
+
+        // run the simulator and upload the data if it doesn't
+        if (!response.docs.length) {
+            
+        }
 
         // await uploadSimulation( db );
 
@@ -95,10 +100,11 @@ async function createIndex( auth, db, index ) {
     }, content);
 }
 
-async function pushDocument( db, doc ) {
-    const content = JSON.stringify( doc );
+async function find(db, query) {
+    const content = JSON.stringify( query );
     return await request({
-        hostname, port, path: '/'+db,
+        hostname, port,
+        path: `/${db}/_find`,
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -107,11 +113,10 @@ async function pushDocument( db, doc ) {
     }, content);
 }
 
-async function find(db, query) {
-    const content = JSON.stringify( query );
+async function post( db, doc ) {
+    const content = JSON.stringify( doc );
     return await request({
-        hostname, port,
-        path: `/${db}/_find`,
+        hostname, port, path: '/'+db,
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -152,6 +157,38 @@ function request(options, content) {
 //     request.on('error', error=> {console.log(error); throw error;});
 //     request.end();
 // }
+
+/**  */
+function getSimulationConfig() {
+    // TODO might want to load this from a file instead
+    let config = {
+        start : Date.now(),
+        end : Date.now() + 60000,
+        dt : 100,
+        path : './data/test.json',
+        laydown: [
+            { class:"hq", tap:"a", parent: "", type:"headquarters", status:1, sic:11 },
+            
+            { class:"d1", tap:"b", parent : "hq", type:"command", status:1, latency:0.005, sic:9 },
+            { class:"d2", tap:"c", parent : "hq", type:"command", status:1, latency:0.005, sic:10 },
+
+            { class:"r1", tap:"d", parent : "d1", type:"router", status:1, latency:0.005, sic:6 },
+            { class:"r2", tap:"e", parent : "d2", type:"router", status:1, latency:0.005, sic:7 },
+            { class:"r3", tap:"f", parent : "r2", type:"router", status:1, latency:0.005, sic:8 },
+            
+            { class:"s1", tap:"g", parent : "r1", type:"sensor", glyph:"glyph1", sic:1, status: 1,
+                    lat:35.942, lon:-114.882, spin:10.0, latency:0.005 },
+            { class:"s2", tap:"h", parent : "r1", type:"sensor", glyph:"glyph2", sic:2, status: 1,
+                    lat:36.242, lon:-115.678, spin:10.0, latency:0.005 },
+            { class:"s3", tap:"i", parent : "r2", type:"sensor", glyph:"glyph3", sic:3, status: 1,
+                    lat:35.942, lon:-115.493, spin:10.0, latency:0.005 },
+            { class:"s4", tap:"j", parent : "r3", type:"sensor", glyph:"glyph4", sic:4, status: 1,
+                    lat:36.291, lon:-114.704, spin:10.0, latency:0.005 },
+            { class:"s5", tap:"k", parent : "r3", type:"sensor", glyph:"glyph5", sic:5, status: 1,
+                    lat:36.651, lon:-115.188, spin:10.0, latency:0.005 }
+        ]
+    };
+}
 
 function uploadSimulation( db ) {
     // load the configuration
