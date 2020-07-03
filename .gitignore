@@ -64,4 +64,4 @@ typings/
 json/
 
 #ignore couch data bind mount
-couch/data/
+couchdb/data/*
