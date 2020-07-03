@@ -1,0 +1,20 @@
+version: "3.7"
+
+services:
+    sim: 
+        image: node:12-alpine
+        command: sh -c "npm install && npm run start"
+        working-dir: /sim
+        volumes:
+            - ./:/sim
+
+    couchdb:
+        image: couchdb
+        ports:
+            - 5984:5984
+        volumes:
+            - ${PWD}/couchdb/config:/opt/couchdb/etc/local.d/
+            - ${PWD}/couchdb/data:/opt/couchdb/data
+        environment:
+            - COUCHDB_USER: "admin"
+            - COUCHDB_PASSWORD: "secret"
