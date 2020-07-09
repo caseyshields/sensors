@@ -3,7 +3,8 @@ version: "3.7"
 services:
     sim: 
         image: node:12-alpine
-        command: sh -c "npm install && npm run start"
+        command: sh -c "npm install && npm run couch netsim admin:password"
+        # really shouldn't provide the password here, this is just a proof of concept!
         working_dir: /sim
         volumes:
             - ./:/sim
@@ -15,6 +16,8 @@ services:
         volumes:
             - ./couchdb/config:/opt/couchdb/etc/local.d/
             - ./couchdb/data:/opt/couchdb/data
-        environment:
-            COUCHDB_USER: "admin"
-            COUCHDB_PASSWORD: "secret"
+        # environment:
+            # COUCHDB_USER: "admin"
+            # COUCHDB_PASSWORD: "password"
+        # you only need this when first configuring the server
+

@@ -1,16 +1,32 @@
 const d3_hierarchy = require( 'd3-hierarchy');
 const Simulator = require( '../simulator/simulator.js' );
 
-const host = '127.0.0.1';
-const port = 5984
+const host = 'couchdb'; // 127.0.0.1; // docker provides aliases for each container
+const port = 5984; // default api port for CouchDB
 const cdb = require('./db.js')(host, port);
 
 // get command line args
-const db = process.argv[2]
+const db = process.argv[2];
 const auth = process.argv[3];
 console.log( `{db:'${db}', auth:'${auth}'}` );
+// TODO should probably get these from a bound volume or something...
 
-(async function main() {
+// start the application as soon as we can connect to the couchdb and get instance metadata
+async function testConnection() {
+    try {
+        let info = await cdb.info();
+        if (info.couchdb!='Welcome')
+            throw info;
+        else
+            console.log(info);//main(info);
+    } catch (error) {
+        console.log(error);
+        setTimeout(testConnection, 5000);
+    }
+}
+testConnection();
+
+async function main(info) {
     try {
         // get the available databases
         let dbs = await cdb.allDbs();
@@ -68,7 +84,7 @@ ${JSON.stringify(config,null,' ')}\n`
     } catch (error) {
         console.log(error);
     }
-})();
+};
 
 function getSimulationConfig() {
     // TODO might want to load this from a file instead
