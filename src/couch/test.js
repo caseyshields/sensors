@@ -17,8 +17,10 @@ async function testConnection() {
         let info = await cdb.info();
         if (info.couchdb!='Welcome')
             throw info;
-        else
-            console.log(info);//main(info);
+        else {
+            console.log(info);
+            main(info);
+        }
     } catch (error) {
         console.log(error);
         setTimeout(testConnection, 5000);
@@ -29,7 +31,7 @@ testConnection();
 async function main(info) {
     try {
         // get the available databases
-        let dbs = await cdb.allDbs();
+        let dbs = await cdb.allDbs(auth);
         console.log( `Available Couch databases;\n${JSON.stringify(dbs,null,' ')}` );
 
         // if CouchDB doesn't contain the given database, we create it
@@ -42,7 +44,7 @@ async function main(info) {
         // check if the time index exists
         let name = 'time_index';
         console.log( `Available indices for ${db};` );
-        let indices = await cdb.getIndex(db, name);
+        let indices = await cdb.getIndex(auth, db, name);
         console.log( JSON.stringify(indices,null,' ') );
 
         // create it if it doesn't
@@ -59,7 +61,7 @@ async function main(info) {
         }// index syntax at http://127.0.0.1:5984/_utils/docs/api/database/find.html#db-index
         
         // find out if the database already has any documents in it
-        let response = await cdb.findDocs(db, {
+        let response = await cdb.findDocs(auth, db, {
             selector:{
                 time: {$gt:0}
             },
@@ -133,7 +135,7 @@ async function uploadSimulation( db, config ) {
         // post each event to the couch database...
         for (let event of frame) {
             console.log( event );
-            let result = await cdb.postDoc(db, event);
+            let result = await cdb.postDoc(auth, db, event);
             //console.log( JSON.stringify(result, null, ' ') );
         }
     }

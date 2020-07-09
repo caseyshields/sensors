@@ -14,9 +14,9 @@ async function info() {
     });
 }
 
-async function allDbs() {
+async function allDbs(auth) {
     return await request({
-        host, port,
+        host, port, auth,
         method: 'GET',
         path: '/_all_dbs'
     });
@@ -30,9 +30,9 @@ async function putDb( auth, db ) {
     });
 }
 
-async function getIndex(db, index) {
+async function getIndex(auth, db, index) {
     return await request({
-        host, port,
+        host, port, auth,
         method: 'GET',
         path: `/${db}/_index`
     })
@@ -51,10 +51,10 @@ async function postIndex( auth, db, index ) {
     }, content);
 }
 
-async function findDocs(db, query) {
+async function findDocs(auth, db, query) {
     const content = JSON.stringify( query );
     return await request({
-        host, port,
+        host, port, auth,
         path: `/${db}/_find`,
         method: 'POST',
         headers: {
@@ -64,10 +64,11 @@ async function findDocs(db, query) {
     }, content);
 }
 
-async function postDoc( db, doc ) {
+async function postDoc( auth, db, doc ) {
     const content = JSON.stringify( doc );
     return await request({
-        host, port, path: '/'+db,
+        host, port, auth,
+        path: '/'+db,
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
