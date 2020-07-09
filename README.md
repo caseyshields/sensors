@@ -43,9 +43,10 @@ You will need those credentials to configure the CouchDb server. Here's a [manua
 
 If it's the first run you'll have to edit docker-compose.yml by
  - uncommenting the environment variables and replacing them with the actual credentials you want
-   - you may want to remove this if you won't be using fauxton to inspect your database outside the container.
- - uncomment the external default port mapping so you can configure the couchdb instance.
    - You'll want to remove this item after you're up and running so your credentials aren't floating around in plaintext.
+ - adjust the external default port mapping of the couchdb instance.
+   - you might remove it if no other apps(like fauxton) outside the container are going to use it.
+   
 
 To launch the node app and couch db together, use docker compose;
 ```
