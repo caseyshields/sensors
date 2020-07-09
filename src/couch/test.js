@@ -1,12 +1,12 @@
 const d3_hierarchy = require( 'd3-hierarchy');
 const Simulator = require( '../simulator/simulator.js' );
 
-const host = 'couchdb'; // 127.0.0.1; // docker provides aliases for each container
+const host = process.argv[2]; // CouchDb host name
 const port = 5984; // default api port for CouchDB
 const cdb = require('./db.js')(host, port);
 
 // get command line args
-const db = process.argv[2];
+const db = 'sensors';
 const auth = process.argv[3];
 console.log( `{db:'${db}', auth:'${auth}'}` );
 // TODO should probably get these from a bound volume or something...

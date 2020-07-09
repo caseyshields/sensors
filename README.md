@@ -8,14 +8,17 @@ Most of the models are pretty crude and only used to produce simple test dataset
 
 After running ```npm install```, print simulation output to standard out by running 
 ```
-npm run json
+npm run printout
 ```
 
 To upload the simulation to a couch database;
 ```
-npm run couch <database> <user>:<pass>
+npm run upload <ip> <user>:<pass>
 ```
-For this to work you need a couchdb instance running...
+
+For this to work you need a couchdb instance running. If you are running the script outside docker you probably want to use something like ```127.0.0.1``` for ```<ip>```. If it is inside Docker you should use the name of the container running it. If you are using the docker-compose file it will be ```couchdb```.
+
+
 
 # Single CouchDB Container
 
