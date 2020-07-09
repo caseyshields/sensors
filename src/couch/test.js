@@ -1,19 +1,37 @@
 const d3_hierarchy = require( 'd3-hierarchy');
 const Simulator = require( '../simulator/simulator.js' );
 
-const host = '127.0.0.1';
-const port = 5984
+const host = process.argv[2]; // CouchDb host name
+const port = 5984; // default api port for CouchDB
 const cdb = require('./db.js')(host, port);
 
 // get command line args
-const db = process.argv[2]
+const db = 'sensors';
 const auth = process.argv[3];
 console.log( `{db:'${db}', auth:'${auth}'}` );
+// TODO should probably get these from a bound volume or something...
 
-(async function main() {
+// start the application as soon as we can connect to the couchdb and get instance metadata
+async function testConnection() {
+    try {
+        let info = await cdb.info();
+        if (info.couchdb!='Welcome')
+            throw info;
+        else {
+            console.log(info);
+            main(info);
+        }
+    } catch (error) {
+        console.log(error);
+        setTimeout(testConnection, 5000);
+    }
+}
+testConnection();
+
+async function main(info) {
     try {
         // get the available databases
-        let dbs = await cdb.allDbs();
+        let dbs = await cdb.allDbs(auth);
         console.log( `Available Couch databases;\n${JSON.stringify(dbs,null,' ')}` );
 
         // if CouchDB doesn't contain the given database, we create it
@@ -26,7 +44,7 @@ console.log( `{db:'${db}', auth:'${auth}'}` );
         // check if the time index exists
         let name = 'time_index';
         console.log( `Available indices for ${db};` );
-        let indices = await cdb.getIndex(db, name);
+        let indices = await cdb.getIndex(auth, db, name);
         console.log( JSON.stringify(indices,null,' ') );
 
         // create it if it doesn't
@@ -43,7 +61,7 @@ console.log( `{db:'${db}', auth:'${auth}'}` );
         }// index syntax at http://127.0.0.1:5984/_utils/docs/api/database/find.html#db-index
         
         // find out if the database already has any documents in it
-        let response = await cdb.findDocs(db, {
+        let response = await cdb.findDocs(auth, db, {
             selector:{
                 time: {$gt:0}
             },
@@ -68,7 +86,7 @@ ${JSON.stringify(config,null,' ')}\n`
     } catch (error) {
         console.log(error);
     }
-})();
+};
 
 function getSimulationConfig() {
     // TODO might want to load this from a file instead
@@ -117,7 +135,7 @@ async function uploadSimulation( db, config ) {
         // post each event to the couch database...
         for (let event of frame) {
             console.log( event );
-            let result = await cdb.postDoc(db, event);
+            let result = await cdb.postDoc(auth, db, event);
             //console.log( JSON.stringify(result, null, ' ') );
         }
     }

@@ -61,4 +61,8 @@ typings/
 .next
 
 # ignore generated data
-data/
+json/
+
+#ignore couch bind mounts
+couchdb/data/*
+couchdb/config/*

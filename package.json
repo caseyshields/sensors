@@ -1,0 +1,25 @@
+{
+  "name": "sensors",
+  "version": "1.0.0",
+  "description": "simulates a network of sensors",
+  "main": "testJson.js",
+  "dependencies": {
+    "d3-hierarchy": "^1.1.9"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "printout": "node src/testJson.js",
+    "upload": "node src/couch/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caseyshields/sensors.git"
+  },
+  "author": "Casey Shields",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/caseyshields/sensors/issues"
+  },
+  "homepage": "https://github.com/caseyshields/sensors#readme"
+}
