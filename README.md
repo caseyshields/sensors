@@ -1,23 +1,27 @@
 # sensors
 
-Simulates a network of targets, sensors, and routers, while generating a sequence of events.
-
-These events are Js objects whose members often conform to D3 layout attributes.
+Simulates a hierarchical network of sensors and routers tracking a target.
 
 These events can be serialized to JSON, pushed to a couchDB, or played back over a websocket on an express server.
 
 Most of the models are pretty crude and only used to produce simple test datasets. Similar to some of the tests in the [angles-only tracker](https://github.com/mas12498/tracker).
 
-# CouchDB Container
-
+After running ```npm install```, print simulation output to standard out by running 
 ```
-docker build -t my-couchdb .
-docker run -dp 5984:5984 my-couchdb
+npm run json
 ```
 
-you can provide env vars for the admin credentials, and the image will create the ini file with hashed and salted keys
-you have to bind mount the data dir for persistence, and map the config dir to get the ini file
+To upload the simulation to a couch database;
+```
+npm run couch <database> <user>:<pass>
+```
+For this to work you need a couchdb instance running...
 
+# Single CouchDB Container
+
+I'm trying to learn how I can use docker for setting up my environments, so this is kind of a note space as I figure things out. Here's the [documentation for the Official CouchDb image](https://hub.docker.com/_/couchdb)
+
+To run the image you'll need something like;
 ```
 docker run -dp 5984:5984 `
 -v ${PWD}/couchdb/data:/opt/couchdb/data `
@@ -26,23 +30,41 @@ docker run -dp 5984:5984 `
 -e COUCHDB_PASSWORD=password `
 -d couchdb:latest
 ```
+The volumes are bind mounts, so we can persist the database's configuration and data.
 
-but you don't normally want to start the container this way, so once you have the ini, instead use
+The environment variables you only need the first time, The CouchDb image will add a 'docker.ini' file to the configuration folder with a salted hash of the credentials you supplied.
 
+You will need those credentials to configure the CouchDb server. Here's a [manual on how to do that with fauxton](https://docs.couchdb.org/en/stable/setup/single-node.html)
+
+**//TODO I should write a script that handles that part using the [Cluster Setup API](https://docs.couchdb.org/en/stable/setup/cluster.html#the-cluster-setup-api)**
+
+
+# Application using Docker Compose
+
+If it's the first run you'll have to edit docker-compose.yml by
+ - uncommenting the environment variables and replacing them with the actual credentials you want
+   - you may want to remove this if you won't be using fauxton to inspect your database outside the container.
+ - uncomment the external default port mapping so you can configure the couchdb instance.
+   - You'll want to remove this item after you're up and running so your credentials aren't floating around in plaintext.
+
+To launch the node app and couch db together, use docker compose;
 ```
-docker run -dp 5984:5984 `
--v ${PWD}/couchdb/data:/opt/couchdb/data `
--v ${PWD}/couchdb/config:/opt/couchdb/etc/local.d `
--d couchdb:latest
+docker-compose up -d
 ```
 
-# Docker compose
-
+To stop and remove all the containers;
 ```
-docker-compose 
+docker-compose down
 ```
 
-### TODO
+The node application's root directory is on a bind mount currently so you can use it for development.
 
- - work out a proper interfaces rather than a bunch of one-off scripts
- - Might want to combine capabilities with the tracker project's test data generators as well...
+# TODO
+
+- figure out how to do production and development builds
+
+- figure out how to properly handle credentials and secrets
+
+- figure out a better way to load or enter simulation configuration
+
+- write a small node web app for uploading and then reading the simulation data.

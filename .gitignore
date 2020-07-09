@@ -63,5 +63,6 @@ typings/
 # ignore generated data
 json/
 
-#ignore couch data bind mount
+#ignore couch bind mounts
 couchdb/data/*
+couchdb/config/*
