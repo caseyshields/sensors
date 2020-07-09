@@ -4,7 +4,15 @@ const http = require( 'http' );
 
 module.exports = function( host, port ) {
 
-return {allDbs, putDb, getIndex, postIndex, findDocs, postDoc}
+return {info, allDbs, putDb, getIndex, postIndex, findDocs, postDoc}
+
+async function info() {
+    return await request({
+        host, port,
+        method: 'GET',
+        path: '/'
+    });
+}
 
 async function allDbs() {
     return await request({
