@@ -4,13 +4,15 @@
   "description": "simulates a network of sensors",
   "main": "testJson.js",
   "dependencies": {
-    "d3-hierarchy": "^1.1.9"
+    "d3-hierarchy": "^1.1.9",
+    "express": "^4.17.1"
   },
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "printout": "node src/testJson.js",
-    "upload": "node src/couch/test.js"
+    "upload": "node src/couch/test.js",
+    "server": "node src/server.js"
   },
   "repository": {
     "type": "git",
