@@ -39,35 +39,34 @@ export default (config) => {
     async function open(name, password) {
 
         // it now requires admin privileges
-        // // verify the requested database exists
-        // let dbs = await getDatabases();
-        // if (!dbs.includes(state.db))
-        //     throw( {message: `Invalid db '${state.db}', available dbs ${JSON.stringify(dbs)}`} );
+        // verify the requested database exists
+        let dbs = await getDatabases();
+        if (!dbs.includes(state.db))
+            throw( {message: `Invalid db '${state.db}', available dbs ${JSON.stringify(dbs)}`} );
 
         // authorize
 
-        // let content = JSON.stringify( {name, password} );
-        let response = await fetch( '/_session', {
-            method: 'POST',
-            body: {name, password},
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Content-Length': content.length
-            } }
-        );
+        // // let content = JSON.stringify( {name, password} );
+        // let response = await fetch( '/_session', {
+        //     method: 'POST',
+        //     body: {name, password},
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         // 'Content-Length': content.length
+        //     } }
+        // );
+        // return response;
 
-        return response;
-
-        // // determine the start time of the data by fetching the first document
-        // let document = await getDocument(0);
-        // if (!document.rows.length)
-        //     throw ( {message: `The ${state.db} database does not contain any events`} );
-        // state.time = document.rows[0].key[0]; // the first field of the compound key is a timestamp
+        // determine the start time of the data by fetching the first document
+        let document = await getDocument(0);
+        if (!document.rows.length)
+            throw ( {message: `The ${state.db} database does not contain any events`} );
+        state.time = document.rows[0].key[0]; // the first field of the compound key is a timestamp
 
         // // TODO determine the end time? 
         // // let end = await getDocument( start.total_rows-1 );
 
-        // return ( {host:state.host, port:state.port, db:state.db, design, view, time:state.time} );
+        return ( {host:state.host, port:state.port, db:state.db, design, view, time:state.time} );
     }
 
     /** retrieves the next interval of events, and advances the current time. */
@@ -133,7 +132,7 @@ export default (config) => {
     /** @returns An array of available databases as specified in CouchDB API. */
     async function getDatabases() {
         let response = await fetch(
-            `http://${state.host}:${state.port}/_all_dbs`, 
+            `https://${state.host}:${state.port}/_all_dbs`, 
             {}//mode:'cors'}
             );
         if (!response.ok)

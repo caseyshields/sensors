@@ -16,17 +16,21 @@
 import CouchDb from './stream/couchdb.js';
 main();
 async function main() {
-    let config = {
-        host:'127.0.0.1',//'couchdb',
-        port:5984,
-        db:'sensors'
-    }
-    let cdba = CouchDb(config);
+    // let config = {
+    //     host:'127.0.0.1',//'couchdb',
+    //     //port:5984, // http
+    //     port:6984, // https
+    //     db:'sensors'
+    // }
+    // let cdba = CouchDb(config);
     // let status = await cdba.open('name', 'password');
     // console.log( status );
 
-    let session = await getSession( 'name', 'password' );
-    console.log(session);
+    // let xhrsession = await getSession( 'name', 'password' );
+    // console.log(xhrsession);
+
+    let fetchsession = await fetchSession( 'name', 'password' );
+    console.log(fetchsession);
     
 }
 
@@ -38,7 +42,7 @@ async function getSession(name, password) {
         request.addEventListener('error', reject);
         request.addEventListener('timeout', reject);
         request.addEventListener('abort', reject);
-        request.open("POST", "http://localhost:5984/_session");
+        request.open("POST", "https://localhost:6984/_session");
         request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');//json');
         // request.setRequestHeader('Access-Control-Allow-Methods', '*');
         // request.setRequestHeader('Access-Control-Allow-Methods', 'POST');
@@ -72,7 +76,7 @@ async function fetchSession(name, password) {
             },
             body: credentials
         };
-        fetch( 'http://localhost:5984/_session', options ).then(response => {
+        fetch( 'https://localhost:6984/_session', options ).then(response => {
             if (!response.ok)
                 reject(response.statusText);
 
