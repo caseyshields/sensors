@@ -16,9 +16,11 @@ services:
         image: couchdb:latest
         ports:
             - 5984:5984
+            - 6984:6984
         volumes:
             - ./couchdb/config:/opt/couchdb/etc/local.d/
             - ./couchdb/data:/opt/couchdb/data
+            - ./couchdb/cert:/etc/couchdb/cert
         # environment:
             # COUCHDB_USER: "admin"
             # COUCHDB_PASSWORD: "password"

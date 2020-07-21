@@ -66,3 +66,6 @@ json/
 #ignore couch bind mounts
 couchdb/data/*
 couchdb/config/*
+
+#ignore ssl keys
+*.pem
