@@ -36,27 +36,38 @@ export default (config) => {
     return {open,step,seek,close};
 
     /** Checks that the Database which corresponds to the specified data exists and has data. */
-    async function open() {
+    async function open(name, password) {
 
-        // is the database even there?
-        let status = await getStatus();
-        console.log(status);
+        // it now requires admin privileges
+        // // verify the requested database exists
+        // let dbs = await getDatabases();
+        // if (!dbs.includes(state.db))
+        //     throw( {message: `Invalid db '${state.db}', available dbs ${JSON.stringify(dbs)}`} );
 
-        // verify the requested database exists
-        let dbs = await getDatabases();
-        if (!dbs.includes(state.db))
-            throw( {message: `Invalid db '${state.db}', available dbs ${JSON.stringify(dbs)}`} );
+        // authorize
 
-        // determine the start time of the data by fetching the first document
-        let document = await getDocument(0);
-        if (!document.rows.length)
-            throw ( {message: `The ${state.db} database does not contain any events`} );
-        state.time = document.rows[0].key[0]; // the first field of the compound key is a timestamp
+        // let content = JSON.stringify( {name, password} );
+        let response = await fetch( '/_session', {
+            method: 'POST',
+            body: {name, password},
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Content-Length': content.length
+            } }
+        );
 
-        // TODO determine the end time? 
-        // let end = await getDocument( start.total_rows-1 );
+        return response;
 
-        return ( {host:state.host, port:state.port, db:state.db, design, view, time:state.time} );
+        // // determine the start time of the data by fetching the first document
+        // let document = await getDocument(0);
+        // if (!document.rows.length)
+        //     throw ( {message: `The ${state.db} database does not contain any events`} );
+        // state.time = document.rows[0].key[0]; // the first field of the compound key is a timestamp
+
+        // // TODO determine the end time? 
+        // // let end = await getDocument( start.total_rows-1 );
+
+        // return ( {host:state.host, port:state.port, db:state.db, design, view, time:state.time} );
     }
 
     /** retrieves the next interval of events, and advances the current time. */
@@ -121,7 +132,10 @@ export default (config) => {
 
     /** @returns An array of available databases as specified in CouchDB API. */
     async function getDatabases() {
-        let response = await fetch(`http://${state.host}:${state.port}/_all_dbs`, {mode:'cors'});
+        let response = await fetch(
+            `http://${state.host}:${state.port}/_all_dbs`, 
+            {}//mode:'cors'}
+            );
         if (!response.ok)
             throw( response );
         let json = await response.json();
@@ -135,6 +149,20 @@ export default (config) => {
         let json = await response.json();
         return (json);
     }
+
+    async function getSession(name, password) {
+        let content = JSON.stringify( {name, password} );
+        return await fetch( '/_session', {
+            method: 'POST',
+            body: content,
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': content.length
+            } }
+        );
+    }
+
+    
 }
 
 // DEBUG

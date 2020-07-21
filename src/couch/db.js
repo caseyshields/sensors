@@ -1,17 +1,33 @@
 /** Wraps Node HTTP requests to the CouchDB Rest API in Promises.
- * Only contains a subset used for learning, and pushing simulator data. */
+ * Only contains a subset used for learning, and pushing simulator data.
+ * NOTE: all these methods use embedded credentials over http; 
+ * so yeah, don't use in production... */
 const http = require( 'http' );
 
 module.exports = function( host, port ) {
 
-return {info, allDbs, putDb, getIndex, postIndex, findDocs, postDoc}
+return {session, info, allDbs, putDb, getIndex, postIndex, findDocs, postDoc}
+
+async function session(name, password) {
+    let content = JSON.stringify( {name, password} );
+    return await request({
+        host, port,
+        method: 'POST',
+        path: '/_session',
+        headers: {
+            'Accept':'application/json',
+            'Content-Type': 'application/json',
+            'Content-Length': content.length
+        }
+    }, content);
+}
 
 async function info() {
     return await request({
         host, port,
         method: 'GET',
         path: '/'
-    });
+    }).data;
 }
 
 async function allDbs(auth) {
@@ -19,7 +35,7 @@ async function allDbs(auth) {
         host, port, auth,
         method: 'GET',
         path: '/_all_dbs'
-    });
+    }).data;
 }
 
 async function putDb( auth, db ) {
@@ -27,7 +43,7 @@ async function putDb( auth, db ) {
         host, port, auth,
         method: 'PUT',
         path: `/${db}`
-    });
+    }).data;
 }
 
 async function getIndex(auth, db, index) {
@@ -35,7 +51,7 @@ async function getIndex(auth, db, index) {
         host, port, auth,
         method: 'GET',
         path: `/${db}/_index`
-    })
+    }).data;
 }
 
 async function postIndex( auth, db, index ) {
@@ -48,7 +64,7 @@ async function postIndex( auth, db, index ) {
             'Content-Type' : 'application/json',
             'Content-Length' : content.length
         }
-    }, content);
+    }, content).data;
 }
 
 async function findDocs(auth, db, query) {
@@ -61,7 +77,7 @@ async function findDocs(auth, db, query) {
             'Content-Type': 'application/json',
             'Content-Length': content.length
         }
-    }, content);
+    }, content).data;
 }
 
 async function postDoc( auth, db, doc ) {
@@ -74,29 +90,29 @@ async function postDoc( auth, db, doc ) {
             'Content-Type': 'application/json',
             'Content-Length': content.length
         }
-    }, content);
+    }, content).data;
 }
 
 /** Asynchronously requests json from an API */
-function request(options, content) {
-    return new Promise( (resolve, reject) => {
-        buffer = '';
-        const request = http.request(options, response => {
-            response.on('data', (d)=>{buffer+=d} );
-            response.on('end', ()=>{
-                let json = JSON.parse(buffer);
-                if (response.statusCode>400)
-                    reject(json);
-                resolve(json); 
-            });
-            response.on('error', (e)=>reject(e))
-        });
-        request.on('error', (e)=>reject(e));
-        if(content)
-            request.write( content );
-        request.end();
-    });
-} //TODO I'm just messing with the CouchDB REST API, I should probably use something like nano or pouch...
+// function request(options, content) {
+//     return new Promise( (resolve, reject) => {
+//         buffer = '';
+//         const request = http.request(options, response => {
+//             response.on('data', (d)=>{buffer+=d} );
+//             response.on('end', ()=>{
+//                 let json = JSON.parse(buffer);
+//                 if (response.statusCode>400)
+//                     reject(json);
+//                 resolve(json); 
+//             });
+//             response.on('error', (e)=>reject(e))
+//         });
+//         request.on('error', (e)=>reject(e));
+//         if(content)
+//             request.write( content );
+//         request.end();
+//     });
+// } //TODO I'm just messing with the CouchDB REST API, I should probably use something like nano or pouch...
 // TODO I can't figure out how to make this work with async/await...
 // async function xrequest(options) {
 //     buffer = '';
@@ -110,4 +126,36 @@ function request(options, content) {
 //     request.end();
 // }
 
+
+// response headers?
+/** Asynchronously requests json from an API */
+function request(options, content) {
+    return new Promise( (resolve, reject) => {
+        buffer = '';
+        const request = http.request(options, response => {
+            response.on('data', (d)=>{buffer+=d} );
+            response.on('end', ()=>{
+                try {
+                    let result = {
+                        status: response.statusCode,
+                        headers:response.headers,
+                        data:JSON.parse(buffer)
+                    };
+                    if (response.statusCode<400)
+                        resolve(result);
+                    else reject(response);
+                } catch (exception) {
+                    reject(exception);
+                }
+            });
+            response.on('error', (e)=>reject(e))
+        });
+
+        request.on('error', (e)=>reject(e));
+
+        if(content)
+            request.write( content );
+        request.end();
+    });
+}
 }
