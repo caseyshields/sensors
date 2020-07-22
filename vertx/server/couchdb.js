@@ -1,4 +1,8 @@
-/** Provides a Cave client interface to a CouchDB server.
+// TODO only kept for reference while developing the vertx client!
+// there is not really a secure way to authenticate to CouchDB from a browser client over CORS.
+// Really should have just stuck with conventional wisdom but I thought I could do some serverless, CouchApp kinda thing... oh well.
+
+/** Provides a browser client interface to a CouchDB server.
  * 
  * On Windows the CouchDB service can be started/stopped using the net command;
  *  > net start "apache couchdb"
@@ -19,7 +23,7 @@ export default (config) => {
     // then again views also provide the opportunity to transform the data in situ
     // which, as we've seen, can be fairly important when instrumentation throws us curve balls the night of the mission.
 
-    // default design docs & view for Cave data
+    // default design docs & view for data
     const design = 'stream';
     const view = 'chronological';
 
