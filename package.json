@@ -10,9 +10,8 @@
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "printout": "node src/testJson.js",
-    "upload": "node src/couch/test.js",
-    "server": "node src/server.js"
+    "printout": "node node/printout.js",
+    "upload": "node node/uploader.js"
   },
   "repository": {
     "type": "git",

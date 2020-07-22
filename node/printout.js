@@ -9,7 +9,7 @@ let config = {
     start : Date.now(),
     end : Date.now() + 60000,
     dt : 100,
-    path : './node/json/data.json',
+    path : './node/data/network_simulation.json',
     laydown: [
         { class:"hq", parent: "", type:"headquarters", status:1, sic:11 },
         

@@ -1,9 +1,9 @@
 const d3_hierarchy = require( 'd3-hierarchy');
-const Simulator = require( '../simulator/simulator.js' );
+const Simulator = require( './simulator/simulator.js' );
 
 const host = process.argv[2]; // CouchDb host name
 const port = 5984; // default api port for CouchDB
-const cdb = require('./db.js')(host, port);
+const cdb = require('./access/couchdb.js')(host, port);
 
 // get command line args
 const db = 'sensors';
