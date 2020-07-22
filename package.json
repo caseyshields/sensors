@@ -11,7 +11,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "printout": "node node/printout.js",
-    "upload": "node node/uploader.js"
+    "upload": "node node/uploader.js",
+    "server": "node node/server.js"
   },
   "repository": {
     "type": "git",
