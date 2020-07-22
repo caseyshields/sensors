@@ -61,7 +61,7 @@ typings/
 .next
 
 # ignore generated data
-json/
+node/json/
 
 #ignore couch bind mounts
 couchdb/data/*
@@ -69,3 +69,7 @@ couchdb/config/*
 
 #ignore ssl keys
 *.pem
+
+#ignore idea stuff
+.idea/*
+out/*

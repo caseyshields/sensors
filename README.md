@@ -69,8 +69,6 @@ The node application's root directory is on a bind mount currently so you can us
 
 - figure out how to do production and development builds
 
-- figure out how to properly handle credentials and secrets
-
 - figure out a better way to load or enter simulation configuration
 
-- write a small node web app for uploading and then reading the simulation data.
+- a serverless architecture isn't really an option. Make a vertx server so I can finish the proof of concept web app...
