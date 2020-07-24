@@ -5,15 +5,12 @@
     <!-- <link rel="stylesheet" href=""> -->
 </head>
 <body>
-    <h3>Testaasdf</h3>
-    <svg id="ladder">
-
-    </svg>
+    <h3>Testing static handler</h3>
 
     <!-- <script type="module" src="./stream/couchdb.js"></script> -->
     <script type="module">
 
-import CouchDb from './stream/couchdb.js';
+//import CouchDb from './stream/couchdb.js';
 main();
 async function main() {
     // let config = {
@@ -29,9 +26,9 @@ async function main() {
     // let xhrsession = await getSession( 'name', 'password' );
     // console.log(xhrsession);
 
-    let fetchsession = await fetchSession( 'name', 'password' );
-    console.log(fetchsession);
-    
+    // let fetchsession = await fetchSession( 'name', 'password' );
+    // console.log(fetchsession);
+
 }
 
 async function getSession(name, password) {
@@ -103,7 +100,7 @@ async function fetchSession(name, password) {
 // $Body = '{"user"="user","password"="password"}'
 // Invoke-WebRequest -Method Post -Uri $Uri -Headers $Headers -Body $Body
 
-    </script> 
+    </script>
     <!-- <script src="app.js" type="module" charset="utf-8"></script> -->
 </body>
 </html>

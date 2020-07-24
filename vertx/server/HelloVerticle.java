@@ -8,6 +8,8 @@ import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.handler.StaticHandler;
 
 
 public class HelloVerticle extends AbstractVerticle {
@@ -18,7 +20,25 @@ public class HelloVerticle extends AbstractVerticle {
 //        context();
 //        httpServer(startPromise);
 //        timers();
+//        eventBus();
+        staticServer();
+    }
 
+    public void staticServer() {
+        HttpServer server = vertx.createHttpServer();
+
+        Router router = Router.router(vertx);
+
+        StaticHandler handler = StaticHandler.create()
+                .setWebRoot("./vertx/static/")
+                .setIncludeHidden(false)
+                .setFilesReadOnly(false);
+        router.route("/static/*").handler(handler);
+
+        server.requestHandler(router).listen(8080);
+    }
+
+    public void eventBus() {
         // set up some event bus handlers
         EventBus bus = vertx.eventBus();
         MessageConsumer<String> consumer = bus.consumer("example.test");
