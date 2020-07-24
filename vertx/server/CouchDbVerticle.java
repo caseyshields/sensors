@@ -7,6 +7,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.OpenSSLEngineOptions;
 import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
@@ -25,23 +26,24 @@ public class CouchDbVerticle extends AbstractVerticle {
 
     JsonObject credentials = new JsonObject()
             .put("name", "admin")
-            .put("password", "Aquaphor");
+            .put("password", "password");
 
     MultiMap form = MultiMap.caseInsensitiveMultiMap()
             .set("name", "admin")
-            .set("password", "Aquaphor");
+            .set("password", "password");
 
     public void start(Promise<Void> startPromise) {
-        WebClientOptions options = new WebClientOptions();
-//                .setSsl(true)
+        WebClientOptions options = new WebClientOptions()
+                .setSsl(true)
+                .setSslEngineOptions(new OpenSSLEngineOptions())
 //                .setPemKeyCertOptions(new PemKeyCertOptions().
 //                        setKeyPath("./couchdb/cert/privkey.pem").
 //                        setCertPath("./couchdb/cert/couchdb.pem"))
-//                .setTrustAll(true);
+                .setTrustAll(true);
 //                .setKeepAlive(false);
         client = WebClient.create(vertx, options);
 
-        HttpRequest<Buffer> getSession = client.get(5984, "127.0.0.1", "/_session")
+        HttpRequest<Buffer> getSession = client.get(6984, "localhost", "/_session")
                 .putHeader("Content-Type", "application/x-www-form-urlencoded")
                 .putHeader("Content-Length", "28")
 //                .putHeader("Content-Type", "application/json")
@@ -50,7 +52,7 @@ public class CouchDbVerticle extends AbstractVerticle {
 //                .expect(ResponsePredicate.JSON)
 //                .expect(ResponsePredicate.SC_SUCCESS)
 //                .as(BodyCodec.jsonObject())
-//                .basicAuthentication("admin", "Aquaphor") // only want to use this if we have https set up
+//                .basicAuthentication("admin", "password") // only want to use this if we have https set up
 //                .bearerTokenAuthentication(); // TODO for OAuth2...
 //                .ssl(true)
                 ;

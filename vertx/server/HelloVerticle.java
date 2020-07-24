@@ -8,6 +8,9 @@ import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.NetServer;
+import io.vertx.core.net.NetServerOptions;
+import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
 
@@ -22,6 +25,15 @@ public class HelloVerticle extends AbstractVerticle {
 //        timers();
 //        eventBus();
         staticServer();
+    }
+
+    public void ssl() {
+        NetServerOptions options = new NetServerOptions().setSsl(true).setPemKeyCertOptions(
+            new PemKeyCertOptions().
+                setKeyPath("/path/to/your/server-key.pem").
+                setCertPath("/path/to/your/server-cert.pem")
+        );
+        NetServer server = vertx.createNetServer(options);
     }
 
     public void staticServer() {
