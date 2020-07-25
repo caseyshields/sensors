@@ -28,38 +28,19 @@ public class CouchDbVerticle extends AbstractVerticle {
             .put("name", "admin")
             .put("password", "password");
 
-    MultiMap form = MultiMap.caseInsensitiveMultiMap()
-            .set("name", "admin")
-            .set("password", "password");
-
     public void start(Promise<Void> startPromise) {
-        WebClientOptions options = new WebClientOptions()
-                .setSsl(true)
-                .setSslEngineOptions(new OpenSSLEngineOptions())
-//                .setPemKeyCertOptions(new PemKeyCertOptions().
-//                        setKeyPath("./couchdb/cert/privkey.pem").
-//                        setCertPath("./couchdb/cert/couchdb.pem"))
-                .setTrustAll(true);
-//                .setKeepAlive(false);
-        client = WebClient.create(vertx, options);
-
-        HttpRequest<Buffer> getSession = client.get(6984, "localhost", "/_session")
-                .putHeader("Content-Type", "application/x-www-form-urlencoded")
-                .putHeader("Content-Length", "28")
-//                .putHeader("Content-Type", "application/json")
-//                .putHeader("Content-Length", Integer.toString(credentials.toString().length()) )
+        client = WebClient.create(vertx);
+        HttpRequest<JsonObject> getSession = client.post(5984, "localhost", "/_session")
+                .putHeader("Content-Type", "application/json")
+                .putHeader("Accept", "application/json")
+                .putHeader("Content-Length", Integer.toString(credentials.toString().length()) )
 //                .addQueryParam("name","value" )
-//                .expect(ResponsePredicate.JSON)
-//                .expect(ResponsePredicate.SC_SUCCESS)
-//                .as(BodyCodec.jsonObject())
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject())
 //                .basicAuthentication("admin", "password") // only want to use this if we have https set up
-//                .bearerTokenAuthentication(); // TODO for OAuth2...
-//                .ssl(true)
                 ;
 
-//        getSession.sendJsonObject(credentials, request -> {
-        getSession.sendForm(form, request-> { // by default uses 'content-type' = 'application/x-www-form-urlencoded'
-//        getsession.sendBuffer(credentials, request->{
+        getSession.sendJsonObject(credentials, request -> {
 
             // print out request info
             System.out.println("HEADERS:");
@@ -67,12 +48,13 @@ public class CouchDbVerticle extends AbstractVerticle {
                 System.out.println( header.getKey()+'='+header.getValue() );
             });
             System.out.println("BODY:");
-            System.out.println( form );
+            System.out.println( credentials );
+            System.out.println();
 
             if (request.succeeded()) {
 
                 // print out response info
-                HttpResponse<Buffer> response = request.result();
+                HttpResponse<JsonObject> response = request.result();
                 System.out.println("STATUS:"+response.statusCode()+"="+response.statusMessage());
                 System.out.println("HEADERS:");
                 response.headers().forEach( header->{
@@ -81,7 +63,7 @@ public class CouchDbVerticle extends AbstractVerticle {
                 System.out.println("COOKIES:");
                 response.cookies().forEach( cookie -> System.out.println(cookie) );
                 System.out.println("BODY:");
-                System.out.println( response.bodyAsString() );
+                System.out.println( response.body() );
 
                 response.trailers().forEach( trailer->{System.out.println(trailer);} );
             } else {
