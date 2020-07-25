@@ -20,62 +20,83 @@ import java.util.function.Function;
  * the new simulator, and we have to figure out queries and view over again...*/
 public class CouchDbVerticle extends AbstractVerticle {
 
-    JsonObject credentials = new JsonObject()
-            .put("name", "admin")
-            .put("password", "password");
-
+    WebClient client;
+    JsonObject credentials;
     HashMap<String, String> token;
 
     /** Obtain a session cookie then delete it;
      * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
     public void start(Promise<Void> promise) {
-        WebClient client = WebClient.create(vertx);
+        this.client = WebClient.create(vertx);
+        this.token = new HashMap<>();
+        this.credentials = new JsonObject()
+                .put("name", "admin")
+                .put("password", "Preceptor");
 
-        HttpRequest<JsonObject> session = client.post(5984, "localhost", "/_session")
-                .putHeader("Content-Type", "application/json")
-                .putHeader("Accept", "application/json")
-                .putHeader("Content-Length", Integer.toString(credentials.toString().length()))
-                .expect(ResponsePredicate.status(200, 299))
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject());
+        getSession().onSuccess( result-> {
+            deleteSession()
+                    .onSuccess( ar->System.out.println("Session deleted successfully") )
+                    .onFailure( ar->System.out.println("Session delete failed") );
 
-        session.sendJsonObject(credentials, request -> {
+        }).onFailure( result ->
+            System.out.print( result.getCause().toString() )
+        );
+    }
 
-            if (!request.succeeded())
-                promise.fail( request.cause() );
-            HttpResponse<JsonObject> response = request.result();
-
-            // make sure we have admin role
-            JsonObject body = response.body();
-            if (!body.getBoolean("ok"))
-                promise.fail( body.getString("error") );
-            if (!body.getJsonArray("roles").contains("_admin"))
-                promise.fail( "not an administrator" );
-
-            // save the session cookie
-            String cookie = response.getHeader("Set-Cookie");
-            this.token = parseCookie( cookie );
-
-            ///
-            HttpRequest<JsonObject> delete = client.delete(5984, "localhost", "/_session")
+    public Future<Void> getSession() {
+        return Future.future( promise -> {
+            HttpRequest<JsonObject> session = client.post(5984, "localhost", "/_session")
+                    .putHeader("Content-Type", "application/json")
                     .putHeader("Accept", "application/json")
-                    .putHeader("AuthSession", token.get("AuthSession") )
+                    .putHeader("Content-Length", Integer.toString(credentials.toString().length()))
                     .expect(ResponsePredicate.status(200, 299))
                     .expect(ResponsePredicate.JSON)
                     .as(BodyCodec.jsonObject());
-            delete.send( drequest-> {
-                if (!drequest.succeeded())
-                    promise.fail( drequest.cause() );
-                HttpResponse<JsonObject> dresponse = drequest.result();
-                JsonObject dbody = dresponse.body();
-                if (!dbody.getBoolean("ok"))
-                    promise.fail( dbody.getString("error") );
-                System.out.println(dbody);
+
+            session.sendJsonObject(credentials, request -> {
+
+                if (!request.succeeded())
+                    promise.fail(request.cause());
+                HttpResponse<JsonObject> response = request.result();
+
+                // make sure we have admin role
+                JsonObject body = response.body();
+                if (!body.getBoolean("ok"))
+                    promise.fail(body.getString("error"));
+                if (!body.getJsonArray("roles").contains("_admin"))
+                    promise.fail("not an administrator");
+
+                // save the session cookie
+                String cookie = response.getHeader("Set-Cookie");
+                this.token = parseCookie(cookie);
+
                 promise.complete();
             });
-            ///
+        });
+    }
 
-//            promise.complete();
+    public Future<Void> deleteSession() {
+        return Future.future( promise -> {
+
+            HttpRequest<JsonObject> delete = client.delete(5984, "localhost", "/_session")
+                    .putHeader("Accept", "application/json")
+                    .putHeader("AuthSession", token.get("AuthSession"))
+                    .expect(ResponsePredicate.status(200, 299))
+                    .expect(ResponsePredicate.JSON)
+                    .as(BodyCodec.jsonObject());
+
+            delete.send( request -> {
+                if (!request.succeeded())
+                    promise.fail(request.cause());
+                HttpResponse<JsonObject> response = request.result();
+
+                JsonObject body = response.body();
+                if (!body.getBoolean("ok"))
+                    promise.fail(body.getString("error"));
+
+                System.out.println(body);
+                promise.complete();
+            });
         });
     }
 
@@ -93,6 +114,11 @@ public class CouchDbVerticle extends AbstractVerticle {
         return map;
     }
 
+    public static void main(String[] args) {
+        Vertx vertx = Vertx.vertx();
+        vertx.deployVerticle(new CouchDbVerticle());
+    }
+
     // you can make your own response predicates...
 //    Function<HttpResponse<Void>, ResponsePredicateResult> methodsPredicate = resp -> {
 //        String methods = resp.getHeader("Access-Control-Allow-Methods");
@@ -103,11 +129,6 @@ public class CouchDbVerticle extends AbstractVerticle {
 //        }
 //        return ResponsePredicateResult.failure("Does not work");
 //    };
-
-    public static void main(String[] args) {
-        Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(new CouchDbVerticle());
-    }
 
     public void test(Promise<Void> startPromise){
         WebClient client = WebClient.create(vertx);
