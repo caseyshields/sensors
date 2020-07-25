@@ -20,7 +20,7 @@ services:
     couchdb:
         image: couchdb:latest
         ports:
-            - 5984:5984
+            - 5984:5984 # don't want people logging into fauxton unencrypted...
             - 6984:6984
         volumes:
             - ./couchdb/config:/opt/couchdb/etc/local.d/
