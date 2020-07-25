@@ -12,6 +12,11 @@ services:
         volumes:
             - ./:/sim
 
+    vertx:
+        image: dune/vertx
+        ports:
+            - 8080:8080
+
     couchdb:
         image: couchdb:latest
         ports:

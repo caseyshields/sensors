@@ -4,6 +4,8 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Context;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.cli.CLI;
+import io.vertx.core.cli.Option;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpServer;
@@ -27,6 +29,29 @@ public class HelloVerticle extends AbstractVerticle {
         staticServer();
     }
 
+    public void cli() {
+        CLI cli = CLI.create("prep")
+                .setSummary("A command line interface for launching preps")
+                .addOption(new Option()
+                        .setRequired(true)
+                        .setLongName("input")
+                        .setShortName("I")
+                        .setDescription("sets the input directory"))
+                .addOption(new Option()
+                        .setRequired(true)
+                        .setLongName("output")
+                        .setShortName("O")
+                        .setDescription("sets the ouput directory"))
+                .addOption(new Option()
+                        .setRequired(false)
+                        .setLongName("pattern")
+                        .setShortName("P")
+                        .setDescription("sets the pattern for filtering files in the input directory"));
+//                .addArgument(new Argument()
+//                    .setIndex(0)
+//                    .setDescription("")
+//                    .setArgName(""));
+    }
     public void ssl() {
         NetServerOptions options = new NetServerOptions().setSsl(true).setPemKeyCertOptions(
             new PemKeyCertOptions().
@@ -42,10 +67,10 @@ public class HelloVerticle extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         StaticHandler handler = StaticHandler.create()
-                .setWebRoot("./vertx/static/")
+                .setWebRoot("./web/")
                 .setIncludeHidden(false)
                 .setFilesReadOnly(false);
-        router.route("/static/*").handler(handler);
+        router.route("/*").handler(handler);
 
         server.requestHandler(router).listen(8080);
     }
@@ -57,10 +82,9 @@ public class HelloVerticle extends AbstractVerticle {
         consumer.handler( message->{
             System.out.println( message.address() );
             System.out.println( message.replyAddress() );
-            message.headers().forEach( header->{
-                System.out.println( header.getKey()+'='+header.getValue() );
-            });
-            System.out.println(message.body().toString());
+            message.headers().forEach( header->
+                System.out.println( header.getKey()+'='+header.getValue() ));
+            System.out.println(message.body());
         });
         consumer.completionHandler( result->{
             if (result.succeeded()) {
@@ -95,11 +119,10 @@ public class HelloVerticle extends AbstractVerticle {
 
     public void httpServer(Promise<Void> startPromise) {
         // this is blocking, which is why we overrode the async start method...
-        server = vertx.createHttpServer().requestHandler(req -> {
+        server = vertx.createHttpServer().requestHandler(req ->
             req.response()
                     .putHeader("content-type", "text/plain")
-                    .end("Hello from Vert.x!");
-        });
+                    .end("Hello from Vert.x!") );
         server.listen(8080, res->{
             if (res.succeeded()) {
                 startPromise.complete();
@@ -111,9 +134,7 @@ public class HelloVerticle extends AbstractVerticle {
 
     public void timers() {
         // playing with timers in the event loop...
-        long timer1 = vertx.setTimer(1000, id->{
-            System.out.println("timer "+id);
-        });
+        long timer1 = vertx.setTimer(1000, id->System.out.println("timer "+id) );
         long timer2 = vertx.setPeriodic(2000, this::handler);
         System.out.println("starting");
     }

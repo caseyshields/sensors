@@ -2,21 +2,25 @@
 FROM vertx/vertx3
 
 #                                                       (1)
-ENV VERTICLE_NAME server.HelloVerticle
-ENV VERTICLE_FILE out/artifacts/sensors_jar/sensors.jar
+ENV MAIN_CLASS server.HelloVerticle
+ENV JAR_FILE out/artifacts/sensors_jar/sensors.jar
+ENV WEB_ROOT web
 
 # Set the location of the verticles
 ENV VERTICLE_HOME /usr/verticles
+ENV VERTICLE_ROOT /usr/verticles/web
 
 EXPOSE 8080
 
 # Copy your verticle to the container                   (2)
-COPY $VERTICLE_FILE $VERTICLE_HOME/
+COPY $JAR_FILE $VERTICLE_HOME/
+
+COPY $WEB_ROOT $VERTICLE_ROOT/
 
 # Launch the verticle
 WORKDIR $VERTICLE_HOME
 ENTRYPOINT ["sh", "-c"]
-CMD ["exec vertx run $VERTICLE_NAME -cp $VERTICLE_HOME/*"]
+CMD ["exec vertx run $MAIN_CLASS -cp $VERTICLE_HOME/*"]
 
 # build and run the image using;
 #> docker build -t dune/vertx .
