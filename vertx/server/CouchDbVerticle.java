@@ -19,7 +19,6 @@ public class CouchDbVerticle extends AbstractVerticle {
 
     WebClient client; // the client used to make HTTP requests to the CouchDB's REST API
     JsonObject token; // the current access token
-    JsonObject config; // the configuration of this adapter
 
     public static void main(String[] args) {
         JsonObject config = new JsonObject()
@@ -45,8 +44,7 @@ public class CouchDbVerticle extends AbstractVerticle {
         this.client = WebClient.create(vertx);
 
         // get a session token for the configured user
-        JsonObject config = config();
-        JsonObject credentials = config.getJsonObject("credentials");
+        JsonObject credentials = config().getJsonObject("credentials");
         Future<JsonObject> session = getSession(
                 credentials.getString("name"),
                 credentials.getString("password"));
@@ -124,23 +122,24 @@ public class CouchDbVerticle extends AbstractVerticle {
         Promise<JsonArray> promise = Promise.promise();
 
         // craft an Http request for the couch api endpoint
-        String host = config.getString("host");
-        String port = config.getString("port");
-        String uri = "http://" + host + ':' + port + "_all_dbs";
-        HttpRequest<JsonArray> dbs = client.get(uri)
+        String host = config().getString("host");
+        int port = config().getInteger("port");
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        HttpRequest<JsonArray> dbs = client.get(port, host, "/_all_dbs")
                 .putHeader("Accept", "application/json")
-                .putHeader("AuthSession", token.getString("AuthSession"))
+                .putHeader("Cookie", cookie)
                 .expect(ResponsePredicate.status(200, 299))
                 .expect(ResponsePredicate.JSON)
                 .as(BodyCodec.jsonArray());
 
         // send it asynchronously
         dbs.send( request -> {
-            if (!request.succeeded())
+            if (request.succeeded()) {
+                HttpResponse<JsonArray> response = request.result();
+                printResponse(response);
+                promise.complete(response.body());
+            } else
                 promise.fail( request.cause() );
-
-            HttpResponse<JsonArray> response = request.result();
-            promise.complete( response.body() );
         });
         return promise.future();
     }
@@ -154,11 +153,11 @@ public class CouchDbVerticle extends AbstractVerticle {
 
             // fetch the results
             String uri = "http://" +
-                    config.getString("host") +
-                    ':' + config.getString("port") +
-                    '/' + config.getString("db") +
-                    "/_design/" + config.getString("design") +
-                    "/_view/" + config.getString("view") +
+                    config().getString("host") +
+                    ':' + config().getString("port") +
+                    '/' + config().getString("db") +
+                    "/_design/" + config().getString("design") +
+                    "/_view/" + config().getString("view") +
                     "?include_docs=true&limit=1&skip=" + index;
             HttpRequest<JsonObject> getDoc = client.get(uri)
                     .putHeader("Accept", "application/json")
