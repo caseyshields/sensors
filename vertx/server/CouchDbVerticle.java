@@ -1,6 +1,7 @@
 package server;
 
 import io.vertx.core.*;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
@@ -26,6 +27,8 @@ does client only talk to cave, or can it directly talk to couch after authentica
 update viz loader to make fetch requests to a view... via vertx or not...
 * */
 public class CouchDbVerticle extends AbstractVerticle {
+
+    private static final String VIEW_DIR = "vertx\\server\\views\\";
 
     WebClient client; // the client used to make HTTP requests to the CouchDB's REST API
     JsonObject token; // the current access token // TODO this will go into user sessions
@@ -71,8 +74,9 @@ public class CouchDbVerticle extends AbstractVerticle {
             return createMission("test");
         });
 
-        Future<JsonObject> info = mission.compose( woid -> {
-            return getMission( "test" );
+        Future<Void> info = mission.compose( woid -> {
+            //return getMission( "test" );
+            return addProduct("test", "network");
         }).onSuccess( System.out::println );
 
 //        // get all available databases
@@ -107,6 +111,44 @@ public class CouchDbVerticle extends AbstractVerticle {
         deleteSession()
                 .onSuccess( r->promise.complete() )
                 .onFailure( r->promise.fail(r.getCause()) );
+    }
+
+    private Future<JsonObject> getSession(String name, String password) {
+        Promise<JsonObject> promise = Promise.promise();
+
+        JsonObject credentials = new JsonObject()
+                .put("name", name)
+                .put("password", password);
+
+        HttpRequest<JsonObject> session = client.post(5984, "localhost", "/_session")
+                .putHeader("Content-Type", "application/json")
+                .putHeader("Accept", "application/json")
+                .putHeader("Content-Length", Integer.toString(credentials.toString().length()))
+                .expect(ResponsePredicate.status(200, 299))
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject());
+
+        session.sendJsonObject(credentials, request -> {
+
+            if (!request.succeeded())
+                promise.fail(request.cause());
+            HttpResponse<JsonObject> response = request.result();
+//            printResponse( response );
+
+            // make sure we have admin role
+            JsonObject body = response.body();
+            if (!body.getBoolean("ok"))
+                promise.fail(body.getString("error"));
+            if (!body.getJsonArray("roles").contains("_admin"))
+                promise.fail("not an administrator");
+            // TODO hmm, will I eventually need any of the role information?
+
+            // parse and return the session cookie as a JsonObject
+            String cookie = response.getHeader("Set-Cookie");
+            JsonObject token = parseCookie(cookie);
+            promise.complete( token );
+        });
+        return promise.future();
     }
 
     /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
@@ -164,44 +206,82 @@ public class CouchDbVerticle extends AbstractVerticle {
         return promise.future();
     }
 
-    private Future<JsonObject> getSession(String name, String password) {
-        Promise<JsonObject> promise = Promise.promise();
+    /** create the specified design document from scripts on the classpath
+     * TODO we might want multiple views, or reduce functions, etc. Need to think about conventions for this... */
+    private Future<JsonObject> getDesign( String name ) {
+        Promise promise = Promise.promise();
 
-        JsonObject credentials = new JsonObject()
-                .put("name", name)
-                .put("password", password);
+        String path = VIEW_DIR + name + ".js";
+        vertx.fileSystem().readFile( path, read -> {
 
-        HttpRequest<JsonObject> session = client.post(5984, "localhost", "/_session")
-                .putHeader("Content-Type", "application/json")
-                .putHeader("Accept", "application/json")
-                .putHeader("Content-Length", Integer.toString(credentials.toString().length()))
-                .expect(ResponsePredicate.status(200, 299))
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject());
+            // check for file problems
+            if (!read.succeeded())
+                promise.fail(read.cause());
+            String script = read.result().toString();
+            if (script==null || script.length()==0)
+                promise.fail("Error: map script missing.");
 
-        session.sendJsonObject(credentials, request -> {
+            // create a design document object for the CouchDB API
+            JsonObject design = new JsonObject()
+                .put("language", "javascript")
+                .put("views", new JsonObject()
+                    .put( name, new JsonObject()
+                        .put("map", script)
+                    )
+                );
+            //https://docs.couchdb.org/en/stable/api/ddoc/common.html#put--db-_design-ddoc
+            // honestly, just look at the network requests of Fauxton when you manually create views. Much more informative.
 
-            if (!request.succeeded())
-                promise.fail(request.cause());
-            HttpResponse<JsonObject> response = request.result();
-//            printResponse( response );
-
-            // make sure we have admin role
-            JsonObject body = response.body();
-            if (!body.getBoolean("ok"))
-                promise.fail(body.getString("error"));
-            if (!body.getJsonArray("roles").contains("_admin"))
-                promise.fail("not an administrator");
-            // TODO hmm, will I eventually need any of the role information?
-
-            // parse and return the session cookie as a JsonObject
-            String cookie = response.getHeader("Set-Cookie");
-            JsonObject token = parseCookie(cookie);
-            promise.complete( token );
+            promise.complete( design );
         });
         return promise.future();
-    }
+    } // TODO need some way of the user selecting the product...
 
+//    private String getView(String name) throws Exception {
+//        Promise promise = Promise.promise();
+//        String path = VIEW_DIR + name + ".js";
+//        Buffer buffer = vertx.fileSystem().readFileBlocking( path );
+//        String script = buffer.toString();
+//        return script;
+//    } // here's the blocking version; easier to understand but if you use it with other async code you have to patch together the exceptions I think...
+
+    private Future<Void> addProduct(String umi, String product) {
+        Promise promise = Promise.promise();
+
+        // get the view's map function script for the specified product
+        getDesign(product).onSuccess( design -> {
+
+            // create a request
+            String host = config().getString("host");
+            int port = config().getInteger("port");
+            String uri = "/" + umi + "/_design/" + product;
+            String cookie = "AuthSession=" + token.getString("AuthSession");
+            int length = design.toString().length(); // redundant computation, does the request work without this header?
+            HttpRequest<JsonObject> put = client.put(port, host, uri)
+                    .putHeader("Accept", "application/json")
+                    .putHeader("Content-Type", "application/json")
+                    .putHeader("Content-Length", Integer.toString(length))
+                    .putHeader("Cookie", cookie)
+                    .expect(ResponsePredicate.JSON)
+                    .as(BodyCodec.jsonObject());
+
+            // send request and handle the response
+            put.sendJson( design, request -> {
+                if (request.succeeded()) {
+                    HttpResponse<JsonObject> response = request.result();
+//                    printResponse(response);
+                    JsonObject message = response.body();
+                    if (message.getBoolean("ok"))
+                        promise.complete();
+                    else promise.fail( message.toString() );
+                } else
+                    promise.fail( request.cause() );
+            });
+
+        }).onFailure( promise::fail );
+
+        return promise.future();
+    }
     /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
      * @return An array of available databases as specified in CouchDB API. */
     private Future<JsonArray> getDatabases() {
