@@ -15,10 +15,22 @@ import java.util.Arrays;
  * might want to just switch to that rather than trying to write our own interface.
  * then again, will have to figure something out for interoperability with dolphin,
  * the new simulator, and we have to figure out queries and view over again...*/
+/*
+createMission(umi) : creates a database
+addUser(name,pass,role) : add a doc to the _users database
+join(umi, user) : add a user to mission's permissions
+addProduct() : create the necessary views of a mission database to run a visualization
+
+does client only talk to cave, or can it directly talk to couch after authentication?
+
+update viz loader to make fetch requests to a view... via vertx or not...
+* */
 public class CouchDbVerticle extends AbstractVerticle {
 
     WebClient client; // the client used to make HTTP requests to the CouchDB's REST API
-    JsonObject token; // the current access token
+    JsonObject token; // the current access token // TODO this will go into user sessions
+
+    // TODO eventually things like current mission and roles should be stored in a user session...
 
     public static void main(String[] args) {
         JsonObject config = new JsonObject()
@@ -49,32 +61,45 @@ public class CouchDbVerticle extends AbstractVerticle {
                 credentials.getString("name"),
                 credentials.getString("password"));
 
-        // cache the token then get all available databases
-        Future<JsonArray> databases = session.compose( token -> {
+        // cache it
+        session.onSuccess( token -> {
             this.token = token;
-            return getDatabases();
         });
 
-        // make sure the database exists
-        Future<JsonObject> first = databases.compose( list -> {
-                    String db = config().getString("db");
-                    if (!list.contains(db))
-                        promise.fail("Missing database '" + db + "', " + list.toString());
-
-                    // then get the first event
-                    return getDocument(1);
-
+        // create a test mission;
+        Future<Void> mission = session.compose( token-> {
+            return createMission("test");
         });
 
-        first.onSuccess( json -> {
+        Future<JsonObject> info = mission.compose( woid -> {
+            return getMission( "test" );
+        }).onSuccess( System.out::println );
 
-            // TODO instead get the database information?
-            System.out.println( json.toString() );
-
-            // TODO get the end of the interval as well?
-            // let end = await getDocument( start.total_rows-1 );
-
-        }).onFailure( promise::fail );
+//        // get all available databases
+//        Future<JsonArray> databases = session.compose( token -> {
+//            return getDatabases();
+//        });
+//
+//        // make sure the database exists
+//        Future<JsonObject> first = databases.compose( list -> {
+//                    String db = config().getString("db");
+//                    if (!list.contains(db))
+//                        promise.fail("Missing database '" + db + "', " + list.toString());
+//
+//                    // then get the first event
+//                    return getDocument(1);
+//                    // TODO we can't really do this until we sort out views
+//        });
+//
+//        first.onSuccess( json -> {
+//
+//            // TODO instead get the database information?
+//            System.out.println( json.toString() );
+//
+//            // TODO get the end of the interval as well?
+//            // let end = await getDocument( start.total_rows-1 );
+//
+//        }).onFailure( promise::fail );
 
     }
 
@@ -82,6 +107,61 @@ public class CouchDbVerticle extends AbstractVerticle {
         deleteSession()
                 .onSuccess( r->promise.complete() )
                 .onFailure( r->promise.fail(r.getCause()) );
+    }
+
+    /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
+    private Future<Void> createMission(String umi) {
+        Promise<Void> promise = Promise.promise();
+
+        String host = config().getString("host");
+        int port = config().getInteger("port");
+        String uri = "/" + umi;
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        HttpRequest<JsonObject> put = client.put(port, host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject());
+
+        put.send( request -> {
+            if (request.succeeded()) {
+                HttpResponse<JsonObject> response = request.result();
+                JsonObject message = response.body();
+                if (message.getBoolean("ok"))
+                    promise.complete();
+                else
+                    promise.fail( message.toString() );
+            } else
+                promise.fail( request.cause() );
+
+        });
+
+        return promise.future();
+    }
+
+    /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
+    private Future<JsonObject> getMission(String umi) {
+        Promise<JsonObject> promise = Promise.promise();
+
+        String host = config().getString("host");
+        int port = config().getInteger("port");
+        String uri = "/" + umi;
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        HttpRequest<JsonObject> mission = client.get(port, host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject());
+
+        mission.send( request -> {
+            if (request.succeeded()) {
+                HttpResponse<JsonObject> response = request.result();
+                promise.complete( response.body() );
+            } else
+                promise.fail( request.cause() );
+        });
+
+        return promise.future();
     }
 
     private Future<JsonObject> getSession(String name, String password) {
@@ -141,6 +221,7 @@ public class CouchDbVerticle extends AbstractVerticle {
         dbs.send( request -> {
             if (request.succeeded()) {
                 HttpResponse<JsonArray> response = request.result();
+                // TODO instead only return missions...
 //                printResponse(response);
                 promise.complete(response.body());
             } else
