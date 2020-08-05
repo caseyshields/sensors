@@ -50,27 +50,32 @@ public class CouchDbVerticle extends AbstractVerticle {
                 credentials.getString("password"));
 
         // cache the token then get all available databases
-        Future<JsonArray> dbs = session.compose( token -> {
-                    this.token = token;
-                    return getDatabases();
+        Future<JsonArray> databases = session.compose( token -> {
+            this.token = token;
+            return getDatabases();
         });
 
-        dbs.onSuccess( list -> System.out.println(list.toString()) )
-        .onFailure( error -> System.out.print(error.toString()) );
-//        // make sure our database exists, then get the first event
-//        Future<JsonObject> event = dbs.compose( list -> {
-//            String db = config.getString("db");
-//            if (!list.contains(db))
-//                 new Exception( "Missing database '"+db+"', "+list.toString());
-//
-//            System.out.println( list.toString() );
-//
-//            // TODO get the first event here!
-//        }, cause -> {});
+        // make sure the database exists
+        Future<JsonObject> first = databases.compose( list -> {
+                    String db = config().getString("db");
+                    if (!list.contains(db))
+                        promise.fail("Missing database '" + db + "', " + list.toString());
 
-//            // // TODO determine the end time?
-//            // // let end = await getDocument( start.total_rows-1 );
-//        });
+                    // then get the first event
+                    return getDocument(1);
+
+        });
+
+        first.onSuccess( json -> {
+
+            // TODO instead get the database information?
+            System.out.println( json.toString() );
+
+            // TODO get the end of the interval as well?
+            // let end = await getDocument( start.total_rows-1 );
+
+        }).onFailure( promise::fail );
+
     }
 
     public void stop(Promise<Void> promise) {
@@ -99,6 +104,7 @@ public class CouchDbVerticle extends AbstractVerticle {
             if (!request.succeeded())
                 promise.fail(request.cause());
             HttpResponse<JsonObject> response = request.result();
+//            printResponse( response );
 
             // make sure we have admin role
             JsonObject body = response.body();
@@ -117,7 +123,7 @@ public class CouchDbVerticle extends AbstractVerticle {
     }
 
     /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
-     * @returnasdf An array of available databases as specified in CouchDB API. */
+     * @return An array of available databases as specified in CouchDB API. */
     private Future<JsonArray> getDatabases() {
         Promise<JsonArray> promise = Promise.promise();
 
@@ -128,7 +134,6 @@ public class CouchDbVerticle extends AbstractVerticle {
         HttpRequest<JsonArray> dbs = client.get(port, host, "/_all_dbs")
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.status(200, 299))
                 .expect(ResponsePredicate.JSON)
                 .as(BodyCodec.jsonArray());
 
@@ -136,7 +141,7 @@ public class CouchDbVerticle extends AbstractVerticle {
         dbs.send( request -> {
             if (request.succeeded()) {
                 HttpResponse<JsonArray> response = request.result();
-                printResponse(response);
+//                printResponse(response);
                 promise.complete(response.body());
             } else
                 promise.fail( request.cause() );
@@ -146,37 +151,34 @@ public class CouchDbVerticle extends AbstractVerticle {
 
     /** Get the 'i'th document in key order from the database. */
     private Future<JsonObject> getDocument( int index ) {
+        Promise promise = Promise.promise();
 
-        return Future.future( promise -> {
+        // assemble the URI and arguments for the specified page
+        String host = config().getString("host");
+        int port = config().getInteger("port");
+        String uri = '/' + config().getString("db");// +
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+//                "/_design/" + config().getString("design") +
+//                "/_view/" + config().getString("view") +
+//                "?include_docs=true&limit=1&skip=" + index;
 
-            // assemble the URI and arguments for the specified page
+        // fetch the results
+        HttpRequest<JsonObject> getDoc = client.get(port, host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject());
 
-            // fetch the results
-            String uri = "http://" +
-                    config().getString("host") +
-                    ':' + config().getString("port") +
-                    '/' + config().getString("db") +
-                    "/_design/" + config().getString("design") +
-                    "/_view/" + config().getString("view") +
-                    "?include_docs=true&limit=1&skip=" + index;
-            HttpRequest<JsonObject> getDoc = client.get(uri)
-                    .putHeader("Accept", "application/json")
-                    .putHeader("AuthSession", token.getString("AuthSession"))
-                    .expect(ResponsePredicate.status(200, 299))
-                    .expect(ResponsePredicate.JSON)
-                    .as(BodyCodec.jsonObject());
-
-            getDoc.send(request -> {
-                if (!request.succeeded())
-                    promise.fail( request.cause() );
-
+        getDoc.send(request -> {
+            if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
-                promise.complete( response.body() );
-
-
-
-            });
+                printResponse(response);
+                promise.complete(response.body());
+            } else
+                promise.fail( request.cause() );
         });
+
+        return promise.future();
     }
 
     /** https://docs.couchdb.org/en/stable/api/server/authn.html#delete--_session */
@@ -205,6 +207,7 @@ public class CouchDbVerticle extends AbstractVerticle {
         });
     }
 
+    /** The CouchDB authorization cookie is a semicolon delimited set of name value pairs. */
     private JsonObject parseCookie (String cookie) {
         String[] entries = cookie.split(";");
         JsonObject token = new JsonObject();
@@ -215,7 +218,6 @@ public class CouchDbVerticle extends AbstractVerticle {
             else if (pair.length==1)
                 token.put(pair[0].trim(), "");
         });
-        token.forEach(entry->System.out.println(entry.getKey()+"="+entry.getValue().toString()));
         return token;
     }
 
