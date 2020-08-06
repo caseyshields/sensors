@@ -118,7 +118,7 @@ public class HelloVerticle extends AbstractVerticle {
     }
 
     public void httpServer(Promise<Void> startPromise) {
-        // this is blocking, which is why we overrode the async start method...
+        // this is asynchronous, which is why we overrode the async start method...
         server = vertx.createHttpServer().requestHandler(req ->
             req.response()
                     .putHeader("content-type", "text/plain")

@@ -1,7 +1,6 @@
 package server;
 
 import io.vertx.core.*;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
@@ -16,16 +15,6 @@ import java.util.Arrays;
  * might want to just switch to that rather than trying to write our own interface.
  * then again, will have to figure something out for interoperability with dolphin,
  * the new simulator, and we have to figure out queries and view over again...*/
-/*
-createMission(umi) : creates a database
-addUser(name,pass,role) : add a doc to the _users database
-join(umi, user) : add a user to mission's permissions
-addProduct() : create the necessary views of a mission database to run a visualization
-
-does client only talk to cave, or can it directly talk to couch after authentication?
-
-update viz loader to make fetch requests to a view... via vertx or not...
-* */
 public class CouchDbVerticle extends AbstractVerticle {
 
     private static final String VIEW_DIR = "vertx\\server\\views\\";
@@ -35,76 +24,18 @@ public class CouchDbVerticle extends AbstractVerticle {
 
     // TODO eventually things like current mission and roles should be stored in a user session...
 
-    public static void main(String[] args) {
-        JsonObject config = new JsonObject()
-                .put("host", "localhost")
-                .put("port", 5984)
-                .put("db", "sensors")
-                .put("design", "stream")
-                .put("view", "chronological")
-                .put("credentials", new JsonObject()
-                        .put("name", "admin")
-                        .put("password", "Preceptor"));
-
-        DeploymentOptions options = new DeploymentOptions()
-                //.setWorker( true )
-                .setConfig( config );
-        Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(new CouchDbVerticle(), options);
-    }
-
-    /** Obtain a session cookie, then check to make sure there is data in the configured database.
+    /** Obtain a session cookie using credentials in configuration.
      * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
     public void start(Promise<Void> promise) {
         this.client = WebClient.create(vertx);
-
-        // get a session token for the configured user
         JsonObject credentials = config().getJsonObject("credentials");
+
         Future<JsonObject> session = getSession(
                 credentials.getString("name"),
-                credentials.getString("password"));
-
-        // cache it
-        session.onSuccess( token -> {
-            this.token = token;
-        });
-
-        // create a test mission;
-        Future<Void> mission = session.compose( token-> {
-            return createMission("test");
-        });
-
-        Future<Void> info = mission.compose( woid -> {
-            //return getMission( "test" );
-            return addProduct("test", "network");
-        }).onSuccess( System.out::println );
-
-//        // get all available databases
-//        Future<JsonArray> databases = session.compose( token -> {
-//            return getDatabases();
-//        });
-//
-//        // make sure the database exists
-//        Future<JsonObject> first = databases.compose( list -> {
-//                    String db = config().getString("db");
-//                    if (!list.contains(db))
-//                        promise.fail("Missing database '" + db + "', " + list.toString());
-//
-//                    // then get the first event
-//                    return getDocument(1);
-//                    // TODO we can't really do this until we sort out views
-//        });
-//
-//        first.onSuccess( json -> {
-//
-//            // TODO instead get the database information?
-//            System.out.println( json.toString() );
-//
-//            // TODO get the end of the interval as well?
-//            // let end = await getDocument( start.total_rows-1 );
-//
-//        }).onFailure( promise::fail );
-
+                credentials.getString("password")
+        ).onSuccess(
+            token -> this.token = token
+        ).onFailure( promise::fail );
     }
 
     public void stop(Promise<Void> promise) {
@@ -208,7 +139,7 @@ public class CouchDbVerticle extends AbstractVerticle {
 
     /** create the specified design document from scripts on the classpath
      * TODO we might want multiple views, or reduce functions, etc. Need to think about conventions for this... */
-    private Future<JsonObject> getDesign( String name ) {
+    private Future<JsonObject> loadDesign(String name ) {
         Promise promise = Promise.promise();
 
         String path = VIEW_DIR + name + ".js";
@@ -235,21 +166,14 @@ public class CouchDbVerticle extends AbstractVerticle {
             promise.complete( design );
         });
         return promise.future();
-    } // TODO need some way of the user selecting the product...
+    }
 
-//    private String getView(String name) throws Exception {
-//        Promise promise = Promise.promise();
-//        String path = VIEW_DIR + name + ".js";
-//        Buffer buffer = vertx.fileSystem().readFileBlocking( path );
-//        String script = buffer.toString();
-//        return script;
-//    } // here's the blocking version; easier to understand but if you use it with other async code you have to patch together the exceptions I think...
-
+    /** Adds the design document associated with the given product to the mission indicated by the umi. */
     private Future<Void> addProduct(String umi, String product) {
         Promise promise = Promise.promise();
 
         // get the view's map function script for the specified product
-        getDesign(product).onSuccess( design -> {
+        loadDesign(product).onSuccess(design -> {
 
             // create a request
             String host = config().getString("host");
@@ -282,6 +206,7 @@ public class CouchDbVerticle extends AbstractVerticle {
 
         return promise.future();
     }
+
     /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
      * @return An array of available databases as specified in CouchDB API. */
     private Future<JsonArray> getDatabases() {
@@ -311,7 +236,7 @@ public class CouchDbVerticle extends AbstractVerticle {
     }
 
     /** Get the 'i'th document in key order from the database. */
-    private Future<JsonObject> getDocument( int index ) {
+    private Future<JsonObject> getDocument( String umi, String product, int index ) {
         Promise promise = Promise.promise();
 
         // assemble the URI and arguments for the specified page
