@@ -25,7 +25,10 @@ public class CaveServer extends AbstractVerticle {
         DeploymentOptions options = new DeploymentOptions()
                 .setConfig( config );
         Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(new CouchDbVerticle(), options);
+        vertx.deployVerticle(new CaveServer(), options);
+
+        // TODO how should we set up and use this verticle?
+//        vertx.deployVerticle(new CouchDbVerticle(), options);
     }
 
     public void start(Promise<Void> promise) {
@@ -34,14 +37,14 @@ public class CaveServer extends AbstractVerticle {
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
 
-        // add api handlers first
-        Route route = router.route().path("/api/*");
-        route.handler( context -> {
-            Map<String, String> params = context.pathParams();
-            HttpServerResponse response = context.response();
-            response.putHeader("content-type", "text/plain" );
-            response.end("huh?");
-        });
+//        // add api handlers first
+//        Route route = router.route().path("/api/*");
+//        route.handler( context -> {
+//            Map<String, String> params = context.pathParams();
+//            HttpServerResponse response = context.response();
+//            response.putHeader("content-type", "text/plain" );
+//            response.end("huh?");
+//        });
 
         // every other get request pass to the static handler
         StaticHandler handler = StaticHandler.create()
@@ -50,7 +53,7 @@ public class CaveServer extends AbstractVerticle {
                 .setFilesReadOnly(false);
         router.route().method(HttpMethod.GET).handler(handler);
 
-        server.requestHandler(router).listen(8080);
+        server.requestHandler(router).listen(43210);
 
 //        // start up the CouchDB service
 //        DeploymentOptions options = new DeploymentOptions()
