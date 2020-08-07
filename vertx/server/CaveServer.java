@@ -13,6 +13,8 @@ import java.util.Map;
 
 public class CaveServer extends AbstractVerticle {
 
+    CouchDb couchdb;
+
     public static void main(String[] args) {
         JsonObject config = new JsonObject()
                 .put("host", "localhost")
@@ -26,79 +28,46 @@ public class CaveServer extends AbstractVerticle {
                 .setConfig( config );
         Vertx vertx = Vertx.vertx();
         vertx.deployVerticle(new CaveServer(), options);
-
-        // TODO how should we set up and use this verticle?
-//        vertx.deployVerticle(new CouchDbVerticle(), options);
     }
 
     public void start(Promise<Void> promise) {
 
-        //
-        HttpServer server = vertx.createHttpServer();
-        Router router = Router.router(vertx);
+        this.couchdb = new CouchDb( vertx,
+                config().getString("host"),
+                config().getInteger("port") );
+        JsonObject cred = config().getJsonObject("credentials");
+        couchdb.getSession(
+                cred.getString("name"),
+                cred.getString("password") )
+            .onSuccess( token -> {
 
-//        // add api handlers first
-//        Route route = router.route().path("/api/*");
-//        route.handler( context -> {
-//            Map<String, String> params = context.pathParams();
-//            HttpServerResponse response = context.response();
-//            response.putHeader("content-type", "text/plain" );
-//            response.end("huh?");
-//        });
+                //
+                HttpServer server = vertx.createHttpServer();
+                Router router = Router.router(vertx);
 
-        // every other get request pass to the static handler
-        StaticHandler handler = StaticHandler.create()
-                .setWebRoot("./web/")
-                .setIncludeHidden(false)
-                .setFilesReadOnly(false);
-        router.route().method(HttpMethod.GET).handler(handler);
+                // add api handlers first
+                Route route = router.route().path("/api/*");
+                route.handler(context -> {
+                    Map<String, String> params = context.pathParams();
+                    HttpServerResponse response = context.response();
+                    response.putHeader("content-type", "text/plain");
+                    response.end("huh?");
+                });
 
-        server.requestHandler(router).listen(43210);
+                // every other get request pass to the static handler
+                StaticHandler handler = StaticHandler.create()
+                        .setWebRoot("./web/")
+                        .setIncludeHidden(false)
+                        .setFilesReadOnly(false);
+                router.route().method(HttpMethod.GET).handler(handler);
 
-//        // start up the CouchDB service
-//        DeploymentOptions options = new DeploymentOptions()
-//                //.setWorker( true )
-//                .setConfig( config() );
-//        Vertx vertx = Vertx.vertx();
-//        vertx.deployVerticle(new CouchDbVerticle(), options);
-//        // great. now how do I use it? messages? mapping routes? eh?
-
-//        // create a test mission;
-//        Future<Void> mission = session.compose(token-> {
-//            return createMission("test");
-//        });
-//
-//        Future<Void> info = mission.compose( woid -> {
-//            //return getMission( "test" );
-//            return addProduct("test", "network");
-//        }).onSuccess( System.out::println );
-
-//        // get all available databases
-//        Future<JsonArray> databases = session.compose( token -> {
-//            return getDatabases();
-//        });
-//
-//        // make sure the database exists
-//        Future<JsonObject> first = databases.compose( list -> {
-//                    String db = config().getString("db");
-//                    if (!list.contains(db))
-//                        promise.fail("Missing database '" + db + "', " + list.toString());
-//
-//                    // then get the first event
-//                    return getDocument(1);
-//                    // TODO we can't really do this until we sort out views
-//        });
-//
-//        first.onSuccess( json -> {
-//
-//            // TODO instead get the database information?
-//            System.out.println( json.toString() );
-//
-//            // TODO get the end of the interval as well?
-//            // let end = await getDocument( start.total_rows-1 );
-//
-//        }).onFailure( promise::fail );
+                server.requestHandler(router).listen(43210);
+            });
     }
 
-
+    public void stop(Promise<Void> promise) {
+        this.couchdb.close()
+                .onSuccess( promise::complete )
+                .onFailure( promise::fail );
+    }
 }

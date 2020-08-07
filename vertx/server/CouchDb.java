@@ -15,43 +15,35 @@ import java.util.Arrays;
  * might want to just switch to that rather than trying to write our own interface.
  * then again, will have to figure something out for interoperability with dolphin,
  * the new simulator, and we have to figure out queries and view over again...*/
-public class CouchDbVerticle extends AbstractVerticle {
+public class CouchDb {
 
     private static final String VIEW_DIR = "vertx\\server\\views\\";
 
+    Vertx vertx;
     WebClient client; // the client used to make HTTP requests to the CouchDB's REST API
-    JsonObject token; // the current access token // TODO this will go into user sessions
+    JsonObject token; // the current access token
+    String host;
+    int port;
 
     // TODO eventually things like current mission and roles should be stored in a user session...
 
     /** Obtain a session cookie using credentials in configuration.
      * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
-    public void start(Promise<Void> promise) {
+    public CouchDb(Vertx vertx, String host, int port) {
+        this.vertx = vertx;
         this.client = WebClient.create(vertx);
-        JsonObject credentials = config().getJsonObject("credentials");
-
-        Future<JsonObject> session = getSession(
-                credentials.getString("name"),
-                credentials.getString("password")
-        ).onSuccess(
-            token -> this.token = token
-        ).onFailure( promise::fail );
+        this.host = host;
+        this.port = port;
     }
 
-    public void stop(Promise<Void> promise) {
-        deleteSession()
-                .onSuccess( r->promise.complete() )
-                .onFailure( r->promise.fail(r.getCause()) );
-    }
-
-    private Future<JsonObject> getSession(String name, String password) {
+    public Future<JsonObject> getSession(String name, String password) {
         Promise<JsonObject> promise = Promise.promise();
 
         JsonObject credentials = new JsonObject()
                 .put("name", name)
                 .put("password", password);
 
-        HttpRequest<JsonObject> session = client.post(5984, "localhost", "/_session")
+        HttpRequest<JsonObject> session = client.post(port, host, "/_session")
                 .putHeader("Content-Type", "application/json")
                 .putHeader("Accept", "application/json")
                 .putHeader("Content-Length", Integer.toString(credentials.toString().length()))
@@ -77,17 +69,16 @@ public class CouchDbVerticle extends AbstractVerticle {
             // parse and return the session cookie as a JsonObject
             String cookie = response.getHeader("Set-Cookie");
             JsonObject token = parseCookie(cookie);
+            this.token = token;
             promise.complete( token );
         });
         return promise.future();
     }
 
     /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
-    private Future<Void> createMission(String umi) {
+    public Future<Void> createMission(String umi) {
         Promise<Void> promise = Promise.promise();
 
-        String host = config().getString("host");
-        int port = config().getInteger("port");
         String uri = "/" + umi;
         String cookie = "AuthSession=" + token.getString("AuthSession");
         HttpRequest<JsonObject> put = client.put(port, host, uri)
@@ -113,11 +104,9 @@ public class CouchDbVerticle extends AbstractVerticle {
     }
 
     /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
-    private Future<JsonObject> getMission(String umi) {
+    public Future<JsonObject> getMission( String umi ) {
         Promise<JsonObject> promise = Promise.promise();
 
-        String host = config().getString("host");
-        int port = config().getInteger("port");
         String uri = "/" + umi;
         String cookie = "AuthSession=" + token.getString("AuthSession");
         HttpRequest<JsonObject> mission = client.get(port, host, uri)
@@ -139,7 +128,7 @@ public class CouchDbVerticle extends AbstractVerticle {
 
     /** create the specified design document from scripts on the classpath
      * TODO we might want multiple views, or reduce functions, etc. Need to think about conventions for this... */
-    private Future<JsonObject> loadDesign(String name ) {
+    public Future<JsonObject> loadDesign( String name ) {
         Promise promise = Promise.promise();
 
         String path = VIEW_DIR + name + ".js";
@@ -169,15 +158,13 @@ public class CouchDbVerticle extends AbstractVerticle {
     }
 
     /** Adds the design document associated with the given product to the mission indicated by the umi. */
-    private Future<Void> addProduct(String umi, String product) {
+    public Future<Void> addProduct(String umi, String product) {
         Promise promise = Promise.promise();
 
         // get the view's map function script for the specified product
         loadDesign(product).onSuccess(design -> {
 
             // create a request
-            String host = config().getString("host");
-            int port = config().getInteger("port");
             String uri = "/" + umi + "/_design/" + product;
             String cookie = "AuthSession=" + token.getString("AuthSession");
             int length = design.toString().length(); // redundant computation, does the request work without this header?
@@ -209,12 +196,10 @@ public class CouchDbVerticle extends AbstractVerticle {
 
     /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
      * @return An array of available databases as specified in CouchDB API. */
-    private Future<JsonArray> getDatabases() {
+    public Future<JsonArray> getDatabases() {
         Promise<JsonArray> promise = Promise.promise();
 
         // craft an Http request for the couch api endpoint
-        String host = config().getString("host");
-        int port = config().getInteger("port");
         String cookie = "AuthSession=" + token.getString("AuthSession");
         HttpRequest<JsonArray> dbs = client.get(port, host, "/_all_dbs")
                 .putHeader("Accept", "application/json")
@@ -236,13 +221,11 @@ public class CouchDbVerticle extends AbstractVerticle {
     }
 
     /** Get the 'i'th document in key order from the database. */
-    private Future<JsonObject> getDocument( String umi, String product, int index ) {
+    public Future<JsonObject> getDocument( String umi, String product, int index ) {
         Promise promise = Promise.promise();
 
         // assemble the URI and arguments for the specified page
-        String host = config().getString("host");
-        int port = config().getInteger("port");
-        String uri = '/' + config().getString("db");// +
+        String uri = '/' + umi;// +
         String cookie = "AuthSession=" + token.getString("AuthSession");
 //                "/_design/" + config().getString("design") +
 //                "/_view/" + config().getString("view") +
@@ -268,7 +251,7 @@ public class CouchDbVerticle extends AbstractVerticle {
     }
 
     /** https://docs.couchdb.org/en/stable/api/server/authn.html#delete--_session */
-    private Future<Void> deleteSession() {
+    public Future<Void> deleteSession() {
         return Future.future( promise -> {
 
             HttpRequest<JsonObject> delete = client.delete(5984, "localhost", "/_session")
@@ -291,6 +274,14 @@ public class CouchDbVerticle extends AbstractVerticle {
                 promise.complete();
             });
         });
+    }
+
+    public Future<Void> close() {
+        Promise<Void> promise = Promise.promise();
+        deleteSession()
+                .onSuccess( r->promise.complete() )
+                .onFailure( r->promise.fail(r.getCause()) );
+        return promise.future();
     }
 
     /** The CouchDB authorization cookie is a semicolon delimited set of name value pairs. */
