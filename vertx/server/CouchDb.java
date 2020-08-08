@@ -29,8 +29,8 @@ public class CouchDb {
 
     /** Obtain a session cookie using credentials in configuration.
      * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
-    public CouchDb(Vertx vertx, String host, int port) {
-        this.vertx = vertx;
+    public CouchDb(String host, int port) {
+        this.vertx = Vertx.currentContext().owner();
         this.client = WebClient.create(vertx);
         this.host = host;
         this.port = port;

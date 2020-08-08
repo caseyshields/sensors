@@ -9,8 +9,6 @@ import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
 
-import java.util.Map;
-
 public class CaveServer extends AbstractVerticle {
 
     CouchDb couchdb;
@@ -32,37 +30,57 @@ public class CaveServer extends AbstractVerticle {
 
     public void start(Promise<Void> promise) {
 
-        this.couchdb = new CouchDb( vertx,
+        // Create the server
+        HttpServer server = vertx.createHttpServer();
+        Router router = Router.router(vertx);
+
+        // connect to couchdb and obtain a token
+        this.couchdb = new CouchDb(
                 config().getString("host"),
                 config().getInteger("port") );
         JsonObject cred = config().getJsonObject("credentials");
         couchdb.getSession(
                 cred.getString("name"),
                 cred.getString("password") )
-            .onSuccess( token -> {
 
-                //
-                HttpServer server = vertx.createHttpServer();
-                Router router = Router.router(vertx);
+        // we only add api endpoints if we can authenticate...
+        .onSuccess( token -> {
+            // TODO really the user should log in with their own credentials.
 
-                // add api handlers first
-                Route route = router.route().path("/api/*");
-                route.handler(context -> {
-                    Map<String, String> params = context.pathParams();
-                    HttpServerResponse response = context.response();
-                    response.putHeader("content-type", "text/plain");
-                    response.end("huh?");
-                });
+            // add mission endpoint
+            Route missions = router.route().path("/api/missions");
+            missions.handler(context -> {
 
-                // every other get request pass to the static handler
-                StaticHandler handler = StaticHandler.create()
-                        .setWebRoot("./web/")
-                        .setIncludeHidden(false)
-                        .setFilesReadOnly(false);
-                router.route().method(HttpMethod.GET).handler(handler);
+                // form a response
+                HttpServerResponse response = context.response();
+                response.putHeader("content-type", "Application/json");
 
-                server.requestHandler(router).listen(43210);
+                // get a list of missions and send it to the client
+                couchdb.getDatabases()
+                .onSuccess(json -> {
+                    response.end(json.toString());
+                    // TODO remove all non mission dbs...
+                })
+
+                // or tell the client what went wrong.
+                .onFailure(error -> {
+                    JsonObject message = new JsonObject()
+                            .put("type", error.getCause().getClass().getName())
+                            .put("message", error.getMessage());
+                    response.end(message.toString());
+                }); // TODO prob really shouldn't tell the outside world what's going on in here...
             });
+            promise.complete();
+        })
+        .onFailure( error -> promise.fail(error) );
+
+        // pass every other get request to the static handler
+        StaticHandler handler = StaticHandler.create()
+                .setWebRoot("./web/")
+                .setIncludeHidden(false)
+                .setFilesReadOnly(false);
+        router.route().method(HttpMethod.GET).handler(handler);
+        server.requestHandler(router).listen(43210); // TODO put this in the configuration
     }
 
     public void stop(Promise<Void> promise) {
