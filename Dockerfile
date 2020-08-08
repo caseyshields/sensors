@@ -2,7 +2,7 @@
 FROM vertx/vertx3
 
 #                                                       (1)
-ENV MAIN_CLASS server.HelloVerticle
+ENV MAIN_CLASS server.CaveServer
 ENV JAR_FILE out/artifacts/sensors_jar/sensors.jar
 ENV WEB_ROOT web
 
@@ -10,7 +10,7 @@ ENV WEB_ROOT web
 ENV VERTICLE_HOME /usr/verticles
 ENV VERTICLE_ROOT /usr/verticles/web
 
-EXPOSE 8080
+EXPOSE 43210
 
 # Copy your verticle to the container                   (2)
 COPY $JAR_FILE $VERTICLE_HOME/

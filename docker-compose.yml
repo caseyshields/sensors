@@ -15,7 +15,7 @@ services:
 #    vertx:
 #        image: dune/vertx
 #        ports:
-#            - 8080:8080
+#            - 43120:43210
 
     couchdb:
         image: couchdb:latest
