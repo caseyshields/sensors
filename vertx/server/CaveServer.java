@@ -56,7 +56,7 @@ public class CaveServer extends AbstractVerticle {
                 response.putHeader("content-type", "Application/json");
 
                 // get a list of missions and send it to the client
-                couchdb.getDatabases()
+                couchdb.getMissions()
                 .onSuccess(json -> {
                     response.end(json.toString());
                     // TODO remove all non mission dbs...

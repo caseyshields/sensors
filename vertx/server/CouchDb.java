@@ -1,6 +1,7 @@
 package server;
 
 import io.vertx.core.*;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
@@ -196,7 +197,7 @@ public class CouchDb {
 
     /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
      * @return An array of available databases as specified in CouchDB API. */
-    public Future<JsonArray> getDatabases() {
+    public Future<JsonArray> getMissions() {
         Promise<JsonArray> promise = Promise.promise();
 
         // craft an Http request for the couch api endpoint
@@ -210,10 +211,18 @@ public class CouchDb {
         // send it asynchronously
         dbs.send( request -> {
             if (request.succeeded()) {
+
                 HttpResponse<JsonArray> response = request.result();
-                // TODO instead only return missions...
+                JsonArray databases = response.body();
+
+                JsonArray missions = new JsonArray();
+                databases.forEach( name -> {
+                    if (!name.toString().startsWith("_"))
+                        missions.add( name.toString() );
+                });
+
 //                printResponse(response);
-                promise.complete(response.body());
+                promise.complete(missions);
             } else
                 promise.fail( request.cause() );
         });
@@ -242,7 +251,7 @@ public class CouchDb {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
                 printResponse(response);
-                promise.complete(response.body());
+                promise.complete( response.body() );
             } else
                 promise.fail( request.cause() );
         });
@@ -254,9 +263,11 @@ public class CouchDb {
     public Future<Void> deleteSession() {
         return Future.future( promise -> {
 
-            HttpRequest<JsonObject> delete = client.delete(5984, "localhost", "/_session")
+            String cookie = "AuthSession=" + token.getString("AuthSession");
+
+            HttpRequest<JsonObject> delete = client.delete(port, host, "/_session")
                     .putHeader("Accept", "application/json")
-                    .putHeader("AuthSession", token.getString("AuthSession"))
+                    .putHeader("Cookie", cookie )//token.getString("AuthSession"))
                     .expect(ResponsePredicate.status(200, 299))
                     .expect(ResponsePredicate.JSON)
                     .as(BodyCodec.jsonObject());
