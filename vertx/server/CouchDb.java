@@ -17,8 +17,6 @@ import java.util.Arrays;
  * the new simulator, and we have to figure out queries and view over again...*/
 public class CouchDb {
 
-    private static final String VIEW_DIR = "vertx\\server\\views\\";
-
     Vertx vertx;
     WebClient client; // the client used to make HTTP requests to the CouchDB's REST API
     JsonObject token; // the current access token
@@ -75,6 +73,40 @@ public class CouchDb {
         return promise.future();
     }
 
+    /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
+     * @return An array of available databases as specified in CouchDB API. */
+    public Future<JsonArray> getMissions() {
+        Promise<JsonArray> promise = Promise.promise();
+
+        // craft an Http request for the couch api endpoint
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        HttpRequest<JsonArray> dbs = client.get(port, host, "/_all_dbs")
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonArray());
+
+        // send it asynchronously
+        dbs.send( request -> {
+            if (request.succeeded()) {
+
+                HttpResponse<JsonArray> response = request.result();
+                JsonArray databases = response.body();
+
+                JsonArray missions = new JsonArray();
+                databases.forEach( name -> {
+                    if (!name.toString().startsWith("_"))
+                        missions.add( name.toString() );
+                });
+
+//                printResponse(response);
+                promise.complete(missions);
+            } else
+                promise.fail( request.cause() );
+        });
+        return promise.future();
+    }
+
     /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
     public Future<Void> createMission(String umi) {
         Promise<Void> promise = Promise.promise();
@@ -126,43 +158,45 @@ public class CouchDb {
         return promise.future();
     }
 
-    /** create the specified design document from scripts on the classpath
-     * TODO we might want multiple views, or reduce functions, etc. Need to think about conventions for this... */
-    public Future<JsonObject> loadDesign( String name ) {
-        Promise promise = Promise.promise();
+    public Future<JsonArray> getProducts(String umi) {
+        Promise<JsonArray> promise = Promise.promise();
+        String uri = "/"+umi+"/_design_docs";
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        HttpRequest<JsonObject> get = client.get(port, host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject());
+        get.send( request -> {
+            if (request.succeeded()) {
+                HttpResponse<JsonObject> response = request.result();
+                JsonObject body = response.body();
+                JsonArray products = new JsonArray();
 
-        String path = VIEW_DIR + name + ".js";
-        vertx.fileSystem().readFile( path, read -> {
+                // get the list of design documents
+                JsonArray rows = body.getJsonArray("rows");
+                rows.forEach( row -> {
 
-            // check for file problems
-            if (!read.succeeded())
-                promise.fail(read.cause());
-            String script = read.result().toString();
-            if (script==null || script.length()==0)
-                promise.fail("Error: map script missing.");
+                    // trim the conventional design document prefix
+                    String id = ((JsonObject)row).getString("id");
+                    String view = id.substring( 1 + id.lastIndexOf("/") );
 
-            // create a design document object for the CouchDB API
-            JsonObject design = new JsonObject()
-                .put("language", "javascript")
-                .put("views", new JsonObject()
-                    .put( name, new JsonObject()
-                        .put("map", script)
-                    )
-                );
-            //https://docs.couchdb.org/en/stable/api/ddoc/common.html#put--db-_design-ddoc
-            // honestly, just look at the network requests of Fauxton when you manually create views. Much more informative.
-
-            promise.complete( design );
-        });
+                    // the views correspond to data products
+                    products.add( view );
+                });
+                promise.complete(products);
+            } else
+                promise.fail( request.cause() );
+        } );
         return promise.future();
     }
 
     /** Adds the design document associated with the given product to the mission indicated by the umi. */
     public Future<Void> addProduct(String umi, String product) {
-        Promise promise = Promise.promise();
+        Promise<Void> promise = Promise.promise();
 
         // get the view's map function script for the specified product
-        loadDesign(product).onSuccess(design -> {
+        Product.loadDesign(product).onSuccess(design -> {
 
             // create a request
             String uri = "/" + umi + "/_design/" + product;
@@ -194,69 +228,49 @@ public class CouchDb {
         return promise.future();
     }
 
-    /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
-     * @return An array of available databases as specified in CouchDB API. */
-    public Future<JsonArray> getDatabases() {
-        Promise<JsonArray> promise = Promise.promise();
-
-        // craft an Http request for the couch api endpoint
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-        HttpRequest<JsonArray> dbs = client.get(port, host, "/_all_dbs")
-                .putHeader("Accept", "application/json")
-                .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonArray());
-
-        // send it asynchronously
-        dbs.send( request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonArray> response = request.result();
-                // TODO instead only return missions...
-//                printResponse(response);
-                promise.complete(response.body());
-            } else
-                promise.fail( request.cause() );
-        });
-        return promise.future();
-    }
-
     /** Get the 'i'th document in key order from the database. */
-    public Future<JsonObject> getDocument( String umi, String product, int index ) {
-        Promise promise = Promise.promise();
+    public Future<JsonObject> getEvents( String umi, String product ) {
+        Promise<JsonObject> promise = Promise.promise();
 
         // assemble the URI and arguments for the specified page
-        String uri = '/' + umi;// +
+        String uri = '/' + umi
+                + "/_design/" + product
+                + "/_view/" + Product.DEFAULT_VIEW;
+        //        "?include_docs=true&limit=1&skip=" + index; // part of a paging scheme- I don't think they do it this way anymore
         String cookie = "AuthSession=" + token.getString("AuthSession");
-//                "/_design/" + config().getString("design") +
-//                "/_view/" + config().getString("view") +
-//                "?include_docs=true&limit=1&skip=" + index;
 
         // fetch the results
         HttpRequest<JsonObject> getDoc = client.get(port, host, uri)
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
+                .addQueryParam("limit", "10")
+//                .addQueryParam("startkey", "")
+//                .addQueryParam("endkey", "")
                 .expect(ResponsePredicate.JSON)
                 .as(BodyCodec.jsonObject());
 
         getDoc.send(request -> {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
-                printResponse(response);
-                promise.complete(response.body());
+//                printResponse(response);
+                promise.complete( response.body() );
             } else
                 promise.fail( request.cause() );
         });
 
         return promise.future();
     }
+    // http://localhost:5984/sensors/_design/product/_view/events?startkey=[%222020-07-17T18:30:44.752Z%22,%22s3%22]&endkey=[%222020-07-17T18:30:44.952Z%22,%22d2%22]
 
     /** https://docs.couchdb.org/en/stable/api/server/authn.html#delete--_session */
     public Future<Void> deleteSession() {
         return Future.future( promise -> {
 
-            HttpRequest<JsonObject> delete = client.delete(5984, "localhost", "/_session")
+            String cookie = "AuthSession=" + token.getString("AuthSession");
+
+            HttpRequest<JsonObject> delete = client.delete(port, host, "/_session")
                     .putHeader("Accept", "application/json")
-                    .putHeader("AuthSession", token.getString("AuthSession"))
+                    .putHeader("Cookie", cookie )//token.getString("AuthSession"))
                     .expect(ResponsePredicate.status(200, 299))
                     .expect(ResponsePredicate.JSON)
                     .as(BodyCodec.jsonObject());
