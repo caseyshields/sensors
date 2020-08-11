@@ -43,10 +43,9 @@ public class CaveServer extends AbstractVerticle {
         couchdb.getSession(
                 cred.getString("name"),
                 cred.getString("password") )
-
-        // we only add api endpoints if we can authenticate...
         .onSuccess( token -> { // TODO really the user should log in with their own credentials.
 
+            // Build the routes if we can authenticate
             router.route()
                     .path("/api/missions")
                     .handler( this::getMissions );
@@ -54,20 +53,22 @@ public class CaveServer extends AbstractVerticle {
                     .path("/api/mission/:mission")
                     .handler( this::getProducts );
             router.route()
-                    .path("/api/mission/:mission/product/:product/")
+                    .path("/api/mission/:mission/product/:product")
                     .handler( this::getEvents );
+
+            // pass every other get request to the static handler
+            StaticHandler handler = StaticHandler.create()
+                    .setWebRoot("./web/")
+                    .setIncludeHidden(false)
+                    .setFilesReadOnly(false);
+            router.route().method(HttpMethod.GET).handler(handler);
+            server.requestHandler(router).listen(43210); // TODO put this in the configuration
 
             promise.complete();
         })
-        .onFailure(promise::fail);
 
-        // pass every other get request to the static handler
-        StaticHandler handler = StaticHandler.create()
-                .setWebRoot("./web/")
-                .setIncludeHidden(false)
-                .setFilesReadOnly(false);
-        router.route().method(HttpMethod.GET).handler(handler);
-        server.requestHandler(router).listen(43210); // TODO put this in the configuration
+        // TODO add a Error page with Admin/Developer contacts
+        .onFailure(promise::fail);
     }
 
     public void getMissions( RoutingContext context ) {
