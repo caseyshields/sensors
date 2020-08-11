@@ -162,16 +162,28 @@ public class CouchDb {
         Promise<JsonArray> promise = Promise.promise();
         String uri = "/"+umi+"/_design_docs";
         String cookie = "AuthSession=" + token.getString("AuthSession");
-        HttpRequest<JsonArray> get = client.get(port, host, uri)
+        HttpRequest<JsonObject> get = client.get(port, host, uri)
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
                 .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonArray());
+                .as(BodyCodec.jsonObject());
         get.send( request -> {
             if (request.succeeded()) {
-                HttpResponse<JsonArray> response = request.result();
-                JsonArray products = response.body();
-                //printResponse(response);
+                HttpResponse<JsonObject> response = request.result();
+                JsonObject body = response.body();
+                JsonArray products = new JsonArray();
+
+                // get the list of design documents
+                JsonArray rows = body.getJsonArray("rows");
+                rows.forEach( row -> {
+
+                    // trim the conventional design document prefix
+                    String id = ((JsonObject)row).getString("id");
+                    String view = id.substring( 1 + id.lastIndexOf("/") );
+
+                    // the views correspond to data products
+                    products.add( view );
+                });
                 promise.complete(products);
             } else
                 promise.fail( request.cause() );
@@ -181,7 +193,7 @@ public class CouchDb {
 
     /** Adds the design document associated with the given product to the mission indicated by the umi. */
     public Future<Void> addProduct(String umi, String product) {
-        Promise promise = Promise.promise();
+        Promise<Void> promise = Promise.promise();
 
         // get the view's map function script for the specified product
         Product.loadDesign(product).onSuccess(design -> {
@@ -217,27 +229,30 @@ public class CouchDb {
     }
 
     /** Get the 'i'th document in key order from the database. */
-    public Future<JsonObject> getDocument( String umi, String product, int index ) {
-        Promise promise = Promise.promise();
+    public Future<JsonObject> getEvents( String umi, String product ) {
+        Promise<JsonObject> promise = Promise.promise();
 
         // assemble the URI and arguments for the specified page
-        String uri = '/' + umi;// + "/_design/" + product + "/_view/" + view;
+        String uri = '/' + umi
+                + "/_design/" + product
+                + "/_view/" + Product.DEFAULT_VIEW;
+        //        "?include_docs=true&limit=1&skip=" + index; // part of a paging scheme- I don't think they do it this way anymore
         String cookie = "AuthSession=" + token.getString("AuthSession");
-//                "/_design/" + config().getString("design") +
-//                "/_view/" + config().getString("view") +
-//                "?include_docs=true&limit=1&skip=" + index;
 
         // fetch the results
         HttpRequest<JsonObject> getDoc = client.get(port, host, uri)
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
+                .addQueryParam("limit", "10")
+//                .addQueryParam("startkey", "")
+//                .addQueryParam("endkey", "")
                 .expect(ResponsePredicate.JSON)
                 .as(BodyCodec.jsonObject());
 
         getDoc.send(request -> {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
-                printResponse(response);
+//                printResponse(response);
                 promise.complete( response.body() );
             } else
                 promise.fail( request.cause() );
@@ -245,8 +260,7 @@ public class CouchDb {
 
         return promise.future();
     }
-    // http://localhost:5984/sensors/_design/product/_view/events
-    // ?startkey=[%222020-07-17T18:30:44.752Z%22,%22s3%22]&endkey=[%222020-07-17T18:30:44.952Z%22,%22d2%22]
+    // http://localhost:5984/sensors/_design/product/_view/events?startkey=[%222020-07-17T18:30:44.752Z%22,%22s3%22]&endkey=[%222020-07-17T18:30:44.952Z%22,%22d2%22]
 
     /** https://docs.couchdb.org/en/stable/api/server/authn.html#delete--_session */
     public Future<Void> deleteSession() {
