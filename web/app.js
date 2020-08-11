@@ -71,15 +71,17 @@ function addEvents(product, index, tags) {
             console.log(response.statusText);
         response.json().then( json => {
 
-            if (json.rows==undefined)
+            if (json.error!=undefined)
                 console.log( JSON.stringify(json) );
 
             // add each event to the product
-            let products = mission.selectAll('h3')
-                .data( json.rows )
-                .enter()
-                .append('h4')
-                .html( d=>JSON.stringify(d) );
+            else {
+                let products = mission.selectAll('h3')
+                    .data( json.rows )
+                    .enter()
+                    .append('h4')
+                    .html( d=>JSON.stringify(d) );
+                    }
         });
     });
 }
