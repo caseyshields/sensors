@@ -13,7 +13,7 @@ async function info() {
         host, port,
         method: 'GET',
         path: '/'
-    }).data;
+    });
 }
 
 async function allDbs(auth) {
@@ -21,7 +21,7 @@ async function allDbs(auth) {
         host, port, auth,
         method: 'GET',
         path: '/_all_dbs'
-    }).data;
+    });
 }
 
 async function putDb( auth, db ) {
@@ -29,7 +29,7 @@ async function putDb( auth, db ) {
         host, port, auth,
         method: 'PUT',
         path: `/${db}`
-    }).data;
+    });
 }
 
 async function getIndex(auth, db, index) {
@@ -37,7 +37,7 @@ async function getIndex(auth, db, index) {
         host, port, auth,
         method: 'GET',
         path: `/${db}/_index`
-    }).data;
+    });
 }
 
 async function postIndex( auth, db, index ) {
@@ -50,7 +50,7 @@ async function postIndex( auth, db, index ) {
             'Content-Type' : 'application/json',
             'Content-Length' : content.length
         }
-    }, content).data;
+    }, content);
 }
 
 async function findDocs(auth, db, query) {
@@ -63,7 +63,7 @@ async function findDocs(auth, db, query) {
             'Content-Type': 'application/json',
             'Content-Length': content.length
         }
-    }, content).data;
+    }, content);
 }
 
 async function postDoc( auth, db, doc ) {
@@ -76,7 +76,7 @@ async function postDoc( auth, db, doc ) {
             'Content-Type': 'application/json',
             'Content-Length': content.length
         }
-    }, content).data;
+    }, content);
 }
 
 // I was looking into cookie authorization. Not really a good idea to use with clients directly...
@@ -119,13 +119,13 @@ function request(options, content) {
             response.on('data', (d)=>{buffer+=d} );
             response.on('end', ()=>{
                 try {
-                    let result = {
-                        status: response.statusCode,
-                        headers:response.headers,
-                        data:JSON.parse(buffer)
-                    }; // added this because I need response header to obtain auth cookies...
+//                    let result = {
+//                        status: response.statusCode,
+//                        headers:response.headers,
+//                        data:JSON.parse(buffer)
+//                    }; // added this because I need response header to obtain auth cookies...
                     if (response.statusCode<400)
-                        resolve(result);
+                        resolve(JSON.parse(buffer));//(result);
                     else reject(response);
                 } catch (exception) {
                     reject(exception);

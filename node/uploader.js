@@ -15,12 +15,11 @@ console.log( `{db:'${db}', auth:'${auth}'}` );
 async function testConnection() {
     try {
         let info = await cdb.info();
+        console.log(info);
         if (info.couchdb!='Welcome')
             throw info;
-        else {
-            console.log(info);
+        else
             main(info);
-        }
     } catch (error) {
         console.log(error);
         setTimeout(testConnection, 5000);
@@ -40,6 +39,8 @@ async function main(info) {
             let created = await cdb.putDb(auth, db);
             console.log( JSON.stringify(created,null,' ') );
         }
+
+        // TODO I think we should be using views, not indices directly!
 
         // check if the time index exists
         let name = 'time_index';
