@@ -1,6 +1,7 @@
 package server;
 
 import io.vertx.core.*;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
@@ -27,8 +28,8 @@ public class CouchDb {
 
     /** Obtain a session cookie using credentials in configuration.
      * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
-    public CouchDb(String host, int port) {
-        this.vertx = Vertx.currentContext().owner();
+    public CouchDb(Vertx vertx, String host, int port) {
+        this.vertx = vertx; //Vertx.currentContext().owner();
         this.client = WebClient.create(vertx);
         this.host = host;
         this.port = port;
@@ -58,7 +59,7 @@ public class CouchDb {
 
             // make sure we have admin role
             JsonObject body = response.body();
-            if (!body.getBoolean("ok"))
+            if (body.containsKey("error"))
                 promise.fail(body.getString("error"));
             if (!body.getJsonArray("roles").contains("_admin"))
                 promise.fail("not an administrator");
@@ -123,10 +124,10 @@ public class CouchDb {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
                 JsonObject message = response.body();
-                if (message.getBoolean("ok"))
-                    promise.complete();
-                else
+                if (message.containsKey("error"))
                     promise.fail( message.toString() );
+                else
+                    promise.complete();
             } else
                 promise.fail( request.cause() );
 
@@ -156,6 +157,32 @@ public class CouchDb {
         });
 
         return promise.future();
+    }
+
+    /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
+    public Future<JsonObject> deleteMission( String umi ) {
+        Promise<JsonObject> promise = Promise.promise();
+        String uri = "/" + umi;
+
+        request(HttpMethod.DELETE, uri, request-> {
+            if (request.succeeded()) {
+                HttpResponse<JsonObject> response = request.result();
+                promise.complete( response.body() );
+            } else
+                promise.fail( request.cause() );
+        });
+        return promise.future();
+    }
+
+    private void request(HttpMethod method, String uri,
+                         Handler<AsyncResult<HttpResponse<JsonObject>>> handler) {
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        client.request(method, port, host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject())
+                .send( handler );
     }
 
     public Future<JsonArray> getProducts(String umi) {
@@ -216,9 +243,10 @@ public class CouchDb {
                     HttpResponse<JsonObject> response = request.result();
 //                    printResponse(response);
                     JsonObject message = response.body();
-                    if (message.getBoolean("ok"))
+                    if (message.containsKey("error"))
+                        promise.fail( message.toString() );
+                    else
                         promise.complete();
-                    else promise.fail( message.toString() );
                 } else
                     promise.fail( request.cause() );
             });
@@ -284,7 +312,6 @@ public class CouchDb {
                 if (!body.getBoolean("ok"))
                     promise.fail(body.getString("error"));
 
-                System.out.println(body);
                 promise.complete();
             });
         });

@@ -36,7 +36,7 @@ public class CaveServer extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         // connect to couchdb and obtain a token
-        this.couchdb = new CouchDb(
+        this.couchdb = new CouchDb( vertx,
                 config().getString("host"),
                 config().getInteger("port") );
         JsonObject cred = config().getJsonObject("credentials");

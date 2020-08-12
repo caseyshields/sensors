@@ -12,5 +12,6 @@
     <orderEntry type="library" name="io.vertx:vertx-core:3.9.2" level="application" />
     <orderEntry type="library" name="io.vertx:vertx-web:3.9.2" level="application" />
     <orderEntry type="library" name="io.vertx:vertx-web-client:3.9.2" level="application" />
+    <orderEntry type="library" name="io.vertx:vertx-unit:3.9.2" level="application" />
   </component>
 </module>
