@@ -78,19 +78,10 @@ public class CouchDb {
      * @return An array of available databases as specified in CouchDB API. */
     public Future<JsonArray> getMissions() {
         Promise<JsonArray> promise = Promise.promise();
-
-        // craft an Http request for the couch api endpoint
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-        HttpRequest<JsonArray> dbs = client.get(port, host, "/_all_dbs")
-                .putHeader("Accept", "application/json")
-                .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonArray());
-
-        // send it asynchronously
-        dbs.send( request -> {
+        request(HttpMethod.GET, "/_all_dbs")
+        .as(BodyCodec.jsonArray())
+        .send( request -> {
             if (request.succeeded()) {
-
                 HttpResponse<JsonArray> response = request.result();
                 JsonArray databases = response.body();
 
@@ -99,8 +90,7 @@ public class CouchDb {
                     if (!name.toString().startsWith("_"))
                         missions.add( name.toString() );
                 });
-
-//                printResponse(response);
+                //printResponse(response);
                 promise.complete(missions);
             } else
                 promise.fail( request.cause() );
@@ -111,16 +101,9 @@ public class CouchDb {
     /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
     public Future<Void> createMission(String umi) {
         Promise<Void> promise = Promise.promise();
-
-        String uri = "/" + umi;
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-        HttpRequest<JsonObject> put = client.put(port, host, uri)
-                .putHeader("Accept", "application/json")
-                .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject());
-
-        put.send( request -> {
+        request(HttpMethod.PUT, "/" + umi)
+        .as(BodyCodec.jsonObject())
+        .send( request -> {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
                 JsonObject message = response.body();
@@ -130,41 +113,31 @@ public class CouchDb {
                     promise.complete();
             } else
                 promise.fail( request.cause() );
-
         });
-
         return promise.future();
     }
 
     /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
     public Future<JsonObject> getMission( String umi ) {
         Promise<JsonObject> promise = Promise.promise();
-
-        String uri = "/" + umi;
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-        HttpRequest<JsonObject> mission = client.get(port, host, uri)
-                .putHeader("Accept", "application/json")
-                .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject());
-
-        mission.send( request -> {
+        request(HttpMethod.GET, "/"+umi)
+        .as(BodyCodec.jsonObject())
+        .send( request -> {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
                 promise.complete( response.body() );
             } else
                 promise.fail( request.cause() );
         });
-
         return promise.future();
     }
 
     /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
     public Future<JsonObject> deleteMission( String umi ) {
         Promise<JsonObject> promise = Promise.promise();
-        String uri = "/" + umi;
-
-        request(HttpMethod.DELETE, uri, request-> {
+        request(HttpMethod.DELETE, "/"+umi)
+        .as(BodyCodec.jsonObject())
+        .send( request-> {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
                 promise.complete( response.body() );
@@ -174,27 +147,11 @@ public class CouchDb {
         return promise.future();
     }
 
-    private void request(HttpMethod method, String uri,
-                         Handler<AsyncResult<HttpResponse<JsonObject>>> handler) {
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-        client.request(method, port, host, uri)
-                .putHeader("Accept", "application/json")
-                .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject())
-                .send( handler );
-    }
-
     public Future<JsonArray> getProducts(String umi) {
         Promise<JsonArray> promise = Promise.promise();
-        String uri = "/"+umi+"/_design_docs";
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-        HttpRequest<JsonObject> get = client.get(port, host, uri)
-                .putHeader("Accept", "application/json")
-                .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject());
-        get.send( request -> {
+        request( HttpMethod.GET, "/"+umi+"/_design_docs")
+        .as(BodyCodec.jsonObject())
+        .send( request -> {
             if (request.succeeded()) {
                 HttpResponse<JsonObject> response = request.result();
                 JsonObject body = response.body();
@@ -293,17 +250,9 @@ public class CouchDb {
     /** https://docs.couchdb.org/en/stable/api/server/authn.html#delete--_session */
     public Future<Void> deleteSession() {
         return Future.future( promise -> {
-
-            String cookie = "AuthSession=" + token.getString("AuthSession");
-
-            HttpRequest<JsonObject> delete = client.delete(port, host, "/_session")
-                    .putHeader("Accept", "application/json")
-                    .putHeader("Cookie", cookie )//token.getString("AuthSession"))
-                    .expect(ResponsePredicate.status(200, 299))
-                    .expect(ResponsePredicate.JSON)
-                    .as(BodyCodec.jsonObject());
-
-            delete.send( request -> {
+            request(HttpMethod.DELETE, "/_session")
+            .as(BodyCodec.jsonObject())
+            .send( request -> {
                 if (!request.succeeded())
                     promise.fail(request.cause());
                 HttpResponse<JsonObject> response = request.result();
@@ -323,6 +272,14 @@ public class CouchDb {
                 .onSuccess( r->promise.complete() )
                 .onFailure( r->promise.fail(r.getCause()) );
         return promise.future();
+    }
+
+    private HttpRequest<?> request(HttpMethod method, String uri) {
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        return client.request(method, port, host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON);
     }
 
     /** The CouchDB authorization cookie is a semicolon delimited set of name value pairs. */
@@ -373,3 +330,34 @@ public class CouchDb {
 //        return ResponsePredicateResult.failure("Does not work");
 //    };
 }
+
+//    public Future<JsonObject> getSession(String name, String password) {
+//        Promise<JsonObject> promise = Promise.promise();
+//
+//        JsonObject credentials = new JsonObject()
+//                .put("name", name)
+//                .put("password", password);
+//
+//        request(HttpMethod.POST, "/_session", credentials, request -> {
+//
+//            if (!request.succeeded())
+//                promise.fail(request.cause());
+//            HttpResponse<JsonObject> response = request.result();
+////            printResponse( response );
+//
+//            // make sure we have admin role
+//            JsonObject body = response.body();
+//            if (body.containsKey("error"))
+//                promise.fail(body.getString("error"));
+//            if (!body.getJsonArray("roles").contains("_admin"))
+//                promise.fail("not an administrator");
+//            // TODO hmm, will I eventually need any of the role information?
+//
+//            // parse and return the session cookie as a JsonObject
+//            String cookie = response.getHeader("Set-Cookie");
+//            JsonObject token = parseCookie(cookie);
+//            this.token = token;
+//            promise.complete( token );
+//        });
+//        return promise.future();
+//    }
