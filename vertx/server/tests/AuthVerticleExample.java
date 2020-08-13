@@ -1,4 +1,4 @@
-package server.learn;
+package server.tests;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.MultiMap;
@@ -17,7 +17,7 @@ import io.vertx.ext.web.client.predicate.ResponsePredicate;
  * - Even inside Docker it is good practice to use SSL between containers
  * - Need to look into a more modern authentication scheme, like OAuth2
  * */
-public class AuthVerticle extends AbstractVerticle {
+public class AuthVerticleExample extends AbstractVerticle {
 
     WebClient client;
 
@@ -77,6 +77,6 @@ public class AuthVerticle extends AbstractVerticle {
 
     public static void main(String[] args) {
         Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(new AuthVerticle());
+        vertx.deployVerticle(new AuthVerticleExample());
     }
 }

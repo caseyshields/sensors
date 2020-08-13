@@ -16,7 +16,7 @@ import java.util.Arrays;
  * might want to just switch to that rather than trying to write our own interface.
  * then again, will have to figure something out for interoperability with dolphin,
  * the new simulator, and we have to figure out queries and view over again...*/
-public class CouchDb {
+public class CouchClient {
 
     Vertx vertx;
     WebClient client; // the client used to make HTTP requests to the CouchDB's REST API
@@ -28,7 +28,7 @@ public class CouchDb {
 
     /** Obtain a session cookie using credentials in configuration.
      * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
-    public CouchDb(Vertx vertx, String host, int port) {
+    public CouchClient(Vertx vertx, String host, int port) {
         this.vertx = vertx; //Vertx.currentContext().owner();
         this.client = WebClient.create(vertx);
         this.host = host;

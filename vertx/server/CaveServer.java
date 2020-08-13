@@ -12,7 +12,7 @@ import io.vertx.ext.web.handler.StaticHandler;
 
 public class CaveServer extends AbstractVerticle {
 
-    CouchDb couchdb;
+    CouchClient couchdb;
 
     public static void main(String[] args) {
         JsonObject config = new JsonObject()
@@ -36,7 +36,7 @@ public class CaveServer extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         // connect to couchdb and obtain a token
-        this.couchdb = new CouchDb( vertx,
+        this.couchdb = new CouchClient( vertx,
                 config().getString("host"),
                 config().getInteger("port") );
         JsonObject cred = config().getJsonObject("credentials");

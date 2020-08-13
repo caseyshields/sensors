@@ -1,12 +1,13 @@
-package server;
+package server.tests;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
+import server.CouchClient;
 
-public class TestCouchDB {
+public class TestCouchMissions {
 
     public static void main(String[] args) {
         TestSuite suite = TestSuite.create("test_couchdb");
@@ -15,7 +16,7 @@ public class TestCouchDB {
         suite.before( context -> {
             Async async = context.async();
             Vertx vertx = Vertx.vertx();
-            CouchDb client = new CouchDb( vertx,"localhost", 5984);
+            CouchClient client = new CouchClient( vertx,"localhost", 5984);
 
             // get the session token from the database
             client.getSession("admin","Preceptor")
@@ -28,7 +29,7 @@ public class TestCouchDB {
 
         // make sure we can retrieve the mission list
         suite.test("getMissions", context -> {
-            CouchDb client = context.get("client");
+            CouchClient client = context.get("client");
             Async result = context.async();
 
             client.getMissions()
@@ -43,7 +44,7 @@ public class TestCouchDB {
 
         // make sure we can create and remove a database
         suite.test( "missionCrud", context -> {
-            CouchDb client = context.get("client");
+            CouchClient client = context.get("client");
             Async result = context.async();
             String db = "test_couchdb_client";
 
@@ -87,7 +88,7 @@ public class TestCouchDB {
         // close the session token after we're done with our tests
         suite.after( context -> {
             Async async = context.async();
-            CouchDb client = context.get("client");
+            CouchClient client = context.get("client");
 
             client.deleteSession()
             .onSuccess( v -> {

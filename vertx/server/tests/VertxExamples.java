@@ -1,4 +1,4 @@
-package server.learn;
+package server.tests;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Context;
@@ -17,7 +17,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
 
 
-public class HelloVerticle extends AbstractVerticle {
+public class VertxExamples extends AbstractVerticle {
 
     private HttpServer server;
 
@@ -151,7 +151,7 @@ public class HelloVerticle extends AbstractVerticle {
 
     public static void main(String[] args) {
         Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(new HelloVerticle());
+        vertx.deployVerticle(new VertxExamples());
     }
 }
 
