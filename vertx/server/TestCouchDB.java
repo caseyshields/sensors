@@ -64,8 +64,6 @@ public class TestCouchDB {
                         context.assertEquals( jsonSummaryMsg.getLong("doc_count"), 0L);
                         context.assertTrue( jsonSummaryMsg.containsKey("doc_del_count"));
                         context.assertEquals( jsonSummaryMsg.getLong("doc_del_count"), 0L);
-
-                        result.complete();
 //                        {"db_name":"test_couchdb_client",
 //                                "purge_seq":"0-g1AAAABPeJzLYWBgYMpgTmHgzcvPy09JdcjLz8gvLskBCeexAEmGBiD1HwiyEhlwqEtkSKqHKMgCAIT2GV4",
 //                                "update_seq":"0-g1AAAABPeJzLYWBgYMpgTmHgzcvPy09JdcjLz8gvLskBCeexAEmGBiD1HwiyEhlwqEtkSKqHKMgCAIT2GV4",
@@ -75,7 +73,12 @@ public class TestCouchDB {
 //                                "doc_count":0,
 //                                "disk_format_version":8,"compact_running":false,"cluster":{"q":2,"n":1,"w":1,"r":1},"instance_start_time":"0"}
 
-
+                        client.deleteMission(db)
+                        .onSuccess( msg -> {
+                            context.assertFalse( msg.containsKey("error") );
+                            result.complete();
+                        })
+                        .onFailure( context::fail );
                     }).onFailure( context::fail );
                 }).onFailure( context::fail );
             }).onFailure( context::fail );
