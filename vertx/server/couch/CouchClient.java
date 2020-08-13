@@ -1,4 +1,4 @@
-package server;
+package server.couch;
 
 import io.vertx.core.*;
 import io.vertx.core.http.HttpMethod;
@@ -176,39 +176,37 @@ public class CouchClient {
     }
 
     /** Adds the design document associated with the given product to the mission indicated by the umi. */
-    public Future<Void> addProduct(String umi, String product) {
+    public Future<Void> addProduct(String umi, String product, JsonObject design) {
         Promise<Void> promise = Promise.promise();
 
-        // get the view's map function script for the specified product
-        Product.loadDesign(product).onSuccess(design -> {
+        // create a request
+        String uri = "/" + umi + "/_design/" + product;
+        String cookie = "AuthSession=" + token.getString("AuthSession");
+        int length = design.toString().length(); // redundant computation, does the request work without this header?
+        HttpRequest<JsonObject> put = client.put(port, host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Content-Type", "application/json")
+                .putHeader("Content-Length", Integer.toString(length))
+                .putHeader("Cookie", cookie)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject());
 
-            // create a request
-            String uri = "/" + umi + "/_design/" + product;
-            String cookie = "AuthSession=" + token.getString("AuthSession");
-            int length = design.toString().length(); // redundant computation, does the request work without this header?
-            HttpRequest<JsonObject> put = client.put(port, host, uri)
-                    .putHeader("Accept", "application/json")
-                    .putHeader("Content-Type", "application/json")
-                    .putHeader("Content-Length", Integer.toString(length))
-                    .putHeader("Cookie", cookie)
-                    .expect(ResponsePredicate.JSON)
-                    .as(BodyCodec.jsonObject());
-
-            // send request and handle the response
-            put.sendJson( design, request -> {
-                if (request.succeeded()) {
-                    HttpResponse<JsonObject> response = request.result();
+//        request(HttpMethod.PUT, uri)
+//                .as(BodyCodec.jsonObject())
+//                .
+        // send request and handle the response
+        put.sendJson( design, request -> {
+            if (request.succeeded()) {
+                HttpResponse<JsonObject> response = request.result();
 //                    printResponse(response);
-                    JsonObject message = response.body();
-                    if (message.containsKey("error"))
-                        promise.fail( message.toString() );
-                    else
-                        promise.complete();
-                } else
-                    promise.fail( request.cause() );
-            });
-
-        }).onFailure( promise::fail );
+                JsonObject message = response.body();
+                if (message.containsKey("error"))
+                    promise.fail( message.toString() );
+                else
+                    promise.complete();
+            } else
+                promise.fail( request.cause() );
+        });
 
         return promise.future();
     }
@@ -220,7 +218,7 @@ public class CouchClient {
         // assemble the URI and arguments for the specified page
         String uri = '/' + umi
                 + "/_design/" + product
-                + "/_view/" + Product.DEFAULT_VIEW;
+                + "/_view/" + CouchProduct.DEFAULT_VIEW;
         //        "?include_docs=true&limit=1&skip=" + index; // part of a paging scheme- I don't think they do it this way anymore
         String cookie = "AuthSession=" + token.getString("AuthSession");
 
@@ -274,7 +272,7 @@ public class CouchClient {
         return promise.future();
     }
 
-    private HttpRequest<?> request(HttpMethod method, String uri) {
+    HttpRequest<?> request(HttpMethod method, String uri) {
         String cookie = "AuthSession=" + token.getString("AuthSession");
         return client.request(method, port, host, uri)
                 .putHeader("Accept", "application/json")

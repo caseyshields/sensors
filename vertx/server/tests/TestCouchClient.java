@@ -6,9 +6,8 @@ import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.CouchClient;
-import server.couch.Mission;
 
-public class TestCouchMissions {
+public class TestCouchClient {
 
     public static void main(String[] args) {
         TestSuite suite = TestSuite.create("test_couchdb");
@@ -33,8 +32,7 @@ public class TestCouchMissions {
             CouchClient client = context.get("client");
             Async result = context.async();
 
-            Mission.list(client)
-//            client.getMissions()
+            client.getMissions()
             .onSuccess( json -> {
                 String s = json.toString();
                 context.assertTrue( (s.length()>0), s );
@@ -51,15 +49,15 @@ public class TestCouchMissions {
             String db = "test_couchdb_client";
 
             // todo first check if the test exited irregularly before...
-            Mission.get(client, db)
+            client.getMission(db)
             .onSuccess( jsonErrorMsg -> {
                 context.assertTrue( jsonErrorMsg.containsKey("error") );
                 context.assertEquals( jsonErrorMsg.getString("error"), "not_found" );
 
-                Mission.put(client, db)
+                client.createMission(db)
                 .onSuccess( v->{
 
-                    Mission.get(client, db)
+                    client.getMission(db)
                     .onSuccess( jsonSummaryMsg -> {
                         context.assertTrue( jsonSummaryMsg.containsKey("db_name") );
                         context.assertEquals( jsonSummaryMsg.getString("db_name"), db);
@@ -76,8 +74,9 @@ public class TestCouchMissions {
 //                                "doc_count":0,
 //                                "disk_format_version":8,"compact_running":false,"cluster":{"q":2,"n":1,"w":1,"r":1},"instance_start_time":"0"}
 
-                        Mission.delete(client, db)
+                        client.deleteMission(db)
                         .onSuccess( msg -> {
+                            context.assertFalse( msg.containsKey("error") );
                             result.complete();
                         })
                         .onFailure( context::fail );
