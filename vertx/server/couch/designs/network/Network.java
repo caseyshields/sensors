@@ -20,7 +20,7 @@ public class Network implements Design {
     static final String DEFAULT_VIEW = "events";
 
     /** This script contains a map function for the default event view */
-    static final String EVENT_SCRIPT = "vertx\\server\\couch\\scripts\\network.js";
+    static final String EVENT_SCRIPT = "vertx\\server\\couch\\designs\\network\\events.map.js";
 
     public String getName() { return DESIGN_NAME; }
 

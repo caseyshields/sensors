@@ -2,13 +2,10 @@ package server.couch;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import io.vertx.ext.web.codec.BodyCodec;
 import server.couch.designs.Design;
 
@@ -48,7 +45,7 @@ public class Product {
     }
 
     /** Retrieves the design document for the mission data product. */
-    public Future<JsonObject> get(CouchClient client, String umi, String product) {
+    public static Future<JsonObject> get(CouchClient client, String umi, String product) {
         Promise<JsonObject> promise = Promise.promise();
 
         String uri = "/" + umi + "/_design/" + product;
@@ -68,7 +65,7 @@ public class Product {
     } // TODO add a variant that uses a HTTP Head command for 'has' predicates...
 
     /** Adds the design document to the mission database. */
-    public Future<Void> put(CouchClient client, String umi, Design design) {
+    public static Future<Void> put(CouchClient client, String umi, Design design) {
         Promise<Void> promise = Promise.promise();
 
         design.getDesignDocument()

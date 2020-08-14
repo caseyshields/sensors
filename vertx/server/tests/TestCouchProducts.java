@@ -1,12 +1,16 @@
 package server.tests;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.CouchClient;
 import server.couch.Mission;
+import server.couch.Product;
+import server.couch.designs.Design;
+import server.couch.designs.network.Network;
 
 public class TestCouchProducts {
 
@@ -40,27 +44,32 @@ public class TestCouchProducts {
         suite.test("ProductCrud", context -> {
             CouchClient client = context.get("client");
             Async result = context.async();
-            Vertx vertx = context.get("vertx");
 
-//            CouchProduct network = CouchProduct.Network();
-//            String name = network.getName();
-//            network.createDesignDocument(vertx).onSuccess( design -> {
-//
-//                // make sure the design document has the default event view
-//                design.getJsonArray("views").
-//
-//                client.addProduct(TEST_MISSION, "network", design)
-//                .onSuccess( json -> {
-//
-//                    // TODO what should the response look like?
-//                    System.out.println(json.toString());
-//
-//                    // TODO get a list of products and make sure it includes the one we just made...
-                    result.complete();
-//
-//                } ).onFailure( context::fail );
-//            }).onFailure( context::fail );
+            Design design = new Network();
 
+            Product.put(client, TEST_MISSION, design)
+            .onSuccess( v-> {
+
+                // create another copy of the product's design document
+                design.getDesignDocument()
+                .onSuccess( document -> {
+
+                    // get the product we just added
+                    Product.get(client, TEST_MISSION, design.getName())
+                    .onSuccess( json -> {
+
+                        // compare the design document views
+                        JsonObject couchView = json.getJsonObject("views");
+                        JsonObject designView = document.getJsonObject( "views" );
+                        context.assertEquals(couchView.toString(), designView.toString());
+
+                        //TODO delete the Product and verify it is gone with the bulk read?
+
+                        result.complete();
+
+                    }).onFailure( context::fail );
+                }).onFailure( context::fail );
+            }).onFailure( context::fail );
         } );
 
         // close the session token after we're done with our tests
