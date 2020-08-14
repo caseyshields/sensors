@@ -10,6 +10,8 @@ import server.couch.Mission;
 
 public class TestCouchMissions {
 
+    public static final String TEST_MISSION = "test_mission";
+
     public static void main(String[] args) {
         TestSuite suite = TestSuite.create("test_couchdb");
 
@@ -48,43 +50,38 @@ public class TestCouchMissions {
         suite.test( "missionCrud", context -> {
             CouchClient client = context.get("client");
             Async result = context.async();
-            String db = "test_couchdb_client";
 
-            // todo first check if the test exited irregularly before...
-            Mission.get(client, db)
-            .onSuccess( jsonErrorMsg -> {
-                context.assertTrue( jsonErrorMsg.containsKey("error") );
-                context.assertEquals( jsonErrorMsg.getString("error"), "not_found" );
+            // add the mission to couch
+            Mission.put(client, TEST_MISSION).compose( v -> {
 
-                Mission.put(client, db)
-                .onSuccess( v->{
+                // then try to read it from couch
+                return Mission.get(client, TEST_MISSION);
 
-                    Mission.get(client, db)
-                    .onSuccess( jsonSummaryMsg -> {
-                        context.assertTrue( jsonSummaryMsg.containsKey("db_name") );
-                        context.assertEquals( jsonSummaryMsg.getString("db_name"), db);
-                        context.assertTrue( jsonSummaryMsg.containsKey("doc_count"));
-                        context.assertEquals( jsonSummaryMsg.getLong("doc_count"), 0L);
-                        context.assertTrue( jsonSummaryMsg.containsKey("doc_del_count"));
-                        context.assertEquals( jsonSummaryMsg.getLong("doc_del_count"), 0L);
-//                        {"db_name":"test_couchdb_client",
-//                                "purge_seq":"0-g1AAAABPeJzLYWBgYMpgTmHgzcvPy09JdcjLz8gvLskBCeexAEmGBiD1HwiyEhlwqEtkSKqHKMgCAIT2GV4",
-//                                "update_seq":"0-g1AAAABPeJzLYWBgYMpgTmHgzcvPy09JdcjLz8gvLskBCeexAEmGBiD1HwiyEhlwqEtkSKqHKMgCAIT2GV4",
-//                                "sizes":{"file":16692,"external":0,"active":0},
-//                                "props":{},
-//                                "doc_del_count":0,
-//                                "doc_count":0,
-//                                "disk_format_version":8,"compact_running":false,"cluster":{"q":2,"n":1,"w":1,"r":1},"instance_start_time":"0"}
+            }).compose( json -> {
 
-                        Mission.delete(client, db)
-                        .onSuccess( msg -> {
-                            result.complete();
-                        })
-                        .onFailure( context::fail );
-                    }).onFailure( context::fail );
-                }).onFailure( context::fail );
-            }).onFailure( context::fail );
-        }); // todo use Future.compose() to flatten this pyramid?
+                // make sure the database's summary object has reasonable values
+                context.assertTrue( json.containsKey("db_name") );
+                context.assertEquals( json.getString("db_name"), TEST_MISSION);
+                context.assertTrue( json.containsKey("doc_count"));
+                context.assertEquals( json.getLong("doc_count"), 0L);
+                context.assertTrue( json.containsKey("doc_del_count"));
+                context.assertEquals( json.getLong("doc_del_count"), 0L);
+
+                // then try to delete the database
+                return Mission.delete(client, TEST_MISSION);
+            })
+            .onSuccess( v-> result.complete() )
+            .onFailure( context::fail);
+        });
+        // example CouchDB Summary document
+//        {"db_name":"test_couchdb_client",
+//        "purge_seq":"0-g1AAAABPeJzLYWBgYMpgTmHgzcvPy09JdcjLz8gvLskBCeexAEmGBiD1HwiyEhlwqEtkSKqHKMgCAIT2GV4",
+//        "update_seq":"0-g1AAAABPeJzLYWBgYMpgTmHgzcvPy09JdcjLz8gvLskBCeexAEmGBiD1HwiyEhlwqEtkSKqHKMgCAIT2GV4",
+//        "sizes":{"file":16692,"external":0,"active":0},
+//        "props":{},
+//        "doc_del_count":0,
+//        "doc_count":0,
+//        "disk_format_version":8,"compact_running":false,"cluster":{"q":2,"n":1,"w":1,"r":1},"instance_start_time":"0"}
 
         // close the session token after we're done with our tests
         suite.after( context -> {
@@ -92,9 +89,7 @@ public class TestCouchMissions {
             CouchClient client = context.get("client");
 
             client.deleteSession()
-            .onSuccess( v -> {
-                async.complete();
-            })
+            .onSuccess( v->async.complete() )
             .onFailure( context::fail );
         });
 

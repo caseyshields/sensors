@@ -1,5 +1,7 @@
 package server.tests;
 
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -40,36 +42,37 @@ public class TestCouchProducts {
             }).onFailure( context::fail );
         });
 
-        // make sure we can retrieve the mission list
         suite.test("ProductCrud", context -> {
             CouchClient client = context.get("client");
             Async result = context.async();
 
             Design design = new Network();
 
-            Product.put(client, TEST_MISSION, design)
-            .onSuccess( v-> {
 
-                // create another copy of the product's design document
-                design.getDesignDocument()
-                .onSuccess( document -> {
+            // add the configuration to CouchDB
+            Product.put(client, TEST_MISSION, design).onSuccess( v-> {
 
-                    // get the product we just added
-                    Product.get(client, TEST_MISSION, design.getName())
-                    .onSuccess( json -> {
+                // get the products design doc from configuration and Couchdb
+                Future<JsonObject> config = design.getDesignDocument();
+                Future<JsonObject> couch = Product.get(client, TEST_MISSION, design.getName());
 
-                        // compare the design document views
-                        JsonObject couchView = json.getJsonObject("views");
-                        JsonObject designView = document.getJsonObject( "views" );
-                        context.assertEquals(couchView.toString(), designView.toString());
+                // once you have them both
+                CompositeFuture.all( config, couch ).onSuccess( ar -> {
 
-                        //TODO delete the Product and verify it is gone with the bulk read?
+                    // make sure the view scripts are identical
+                    JsonObject config_ddoc = ar.resultAt(0);
+                    JsonObject couch_ddoc = ar.resultAt(1);
+                    JsonObject config_view = config_ddoc.getJsonObject("views");
+                    JsonObject couch_view = couch_ddoc.getJsonObject("views");
+                    context.assertEquals( config_view.toString(), couch_view.toString() );
 
-                        result.complete();
+                    // TODO test delete
 
-                    }).onFailure( context::fail );
-                }).onFailure( context::fail );
-            }).onFailure( context::fail );
+                    // TODO test list to make sure it is no longer there
+
+                    result.complete();
+                });
+            });
         } );
 
         // close the session token after we're done with our tests

@@ -73,7 +73,10 @@ public class Mission {
 
             HttpResponse<JsonObject> response = request.result();
             JsonObject body = response.body();
-            promise.complete( body );
+            if (body.containsKey("error"))
+                promise.fail( body.toString() );
+            else
+                promise.complete( body );
         });
         return promise.future();
     }
@@ -93,8 +96,8 @@ public class Mission {
             JsonObject msg = response.body();
             if (msg.containsKey("error"))
                 promise.fail( msg.toString() );
-
-            promise.complete();
+            else
+                promise.complete();
         });
         return promise.future();
     }
