@@ -10,6 +10,9 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.StaticHandler;
 import server.couch.CouchClient;
+import server.couch.Events;
+import server.couch.Mission;
+import server.couch.Product;
 
 public class CaveServer extends AbstractVerticle {
 
@@ -78,7 +81,7 @@ public class CaveServer extends AbstractVerticle {
         response.putHeader("content-type", "Application/json");
 
         // get a list of missions and send it to the client
-        couchdb.getMissions().onSuccess( json -> response.end(json.toString()) )
+        Mission.list(couchdb).onSuccess(json -> response.end(json.toString()) )
 
         // or tell the client what went wrong.
         .onFailure( error -> {
@@ -98,7 +101,7 @@ public class CaveServer extends AbstractVerticle {
         HttpServerRequest request = context.request();
         String umi = request.getParam("mission");
 
-        couchdb.getProducts( umi )
+        Product.list(couchdb, umi)
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> {
             JsonObject message = new JsonObject()
@@ -116,7 +119,7 @@ public class CaveServer extends AbstractVerticle {
         String umi = request.getParam("mission");
         String product = request.getParam("product");
 
-        couchdb.getEvents( umi, product )
+        Events.get(couchdb, umi, product )
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> {
             JsonObject message = new JsonObject()

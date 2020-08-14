@@ -1,14 +1,12 @@
 package server.tests;
 
-import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.CouchClient;
-import server.couch.CouchProduct;
+import server.couch.Mission;
 
 public class TestCouchProducts {
 
@@ -31,9 +29,9 @@ public class TestCouchProducts {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                client.createMission( TEST_MISSION ).onSuccess( v-> {
-                    async.complete();
-                }).onFailure( context::fail );
+                Mission.put(client, TEST_MISSION )
+                        .onSuccess( v->async.complete() )
+                        .onFailure( context::fail );
 
             }).onFailure( context::fail );
         });
@@ -71,12 +69,13 @@ public class TestCouchProducts {
             CouchClient client = context.get("client");
 
             // delete the test mission database
-            client.deleteMission(TEST_MISSION).onComplete( msg -> {
+            Mission.delete(client, TEST_MISSION)
+            .onComplete( msg -> {
 
                 // delete the user session
-                client.deleteSession().onSuccess( v -> {
-                    async.complete();
-                }).onFailure( context::fail );
+                client.deleteSession()
+                        .onSuccess( v -> async.complete())
+                        .onFailure( context::fail );
 
             }).onFailure( context::fail );
         });

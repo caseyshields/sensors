@@ -74,177 +74,6 @@ public class CouchClient {
         return promise.future();
     }
 
-    /** https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
-     * @return An array of available databases as specified in CouchDB API. */
-    public Future<JsonArray> getMissions() {
-        Promise<JsonArray> promise = Promise.promise();
-        request(HttpMethod.GET, "/_all_dbs")
-        .as(BodyCodec.jsonArray())
-        .send( request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonArray> response = request.result();
-                JsonArray databases = response.body();
-
-                JsonArray missions = new JsonArray();
-                databases.forEach( name -> {
-                    if (!name.toString().startsWith("_"))
-                        missions.add( name.toString() );
-                });
-                //printResponse(response);
-                promise.complete(missions);
-            } else
-                promise.fail( request.cause() );
-        });
-        return promise.future();
-    }
-
-    /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
-    public Future<Void> createMission(String umi) {
-        Promise<Void> promise = Promise.promise();
-        request(HttpMethod.PUT, "/" + umi)
-        .as(BodyCodec.jsonObject())
-        .send( request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonObject> response = request.result();
-                JsonObject message = response.body();
-                if (message.containsKey("error"))
-                    promise.fail( message.toString() );
-                else
-                    promise.complete();
-            } else
-                promise.fail( request.cause() );
-        });
-        return promise.future();
-    }
-
-    /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
-    public Future<JsonObject> getMission( String umi ) {
-        Promise<JsonObject> promise = Promise.promise();
-        request(HttpMethod.GET, "/"+umi)
-        .as(BodyCodec.jsonObject())
-        .send( request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonObject> response = request.result();
-                promise.complete( response.body() );
-            } else
-                promise.fail( request.cause() );
-        });
-        return promise.future();
-    }
-
-    /** Creates a database in CouchDB corresponding to a mission, and adds design documents for the needed views*/
-    public Future<JsonObject> deleteMission( String umi ) {
-        Promise<JsonObject> promise = Promise.promise();
-        request(HttpMethod.DELETE, "/"+umi)
-        .as(BodyCodec.jsonObject())
-        .send( request-> {
-            if (request.succeeded()) {
-                HttpResponse<JsonObject> response = request.result();
-                promise.complete( response.body() );
-            } else
-                promise.fail( request.cause() );
-        });
-        return promise.future();
-    }
-
-    public Future<JsonArray> getProducts(String umi) {
-        Promise<JsonArray> promise = Promise.promise();
-        request( HttpMethod.GET, "/"+umi+"/_design_docs")
-        .as(BodyCodec.jsonObject())
-        .send( request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonObject> response = request.result();
-                JsonObject body = response.body();
-                JsonArray products = new JsonArray();
-
-                // get the list of design documents
-                JsonArray rows = body.getJsonArray("rows");
-                rows.forEach( row -> {
-
-                    // trim the conventional design document prefix
-                    String id = ((JsonObject)row).getString("id");
-                    String view = id.substring( 1 + id.lastIndexOf("/") );
-
-                    // the views correspond to data products
-                    products.add( view );
-                });
-                promise.complete(products);
-            } else
-                promise.fail( request.cause() );
-        } );
-        return promise.future();
-    }
-
-    /** Adds the design document associated with the given product to the mission indicated by the umi. */
-    public Future<Void> addProduct(String umi, String product, JsonObject design) {
-        Promise<Void> promise = Promise.promise();
-
-        // create a request
-        String uri = "/" + umi + "/_design/" + product;
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-        int length = design.toString().length(); // redundant computation, does the request work without this header?
-        HttpRequest<JsonObject> put = client.put(port, host, uri)
-                .putHeader("Accept", "application/json")
-                .putHeader("Content-Type", "application/json")
-                .putHeader("Content-Length", Integer.toString(length))
-                .putHeader("Cookie", cookie)
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject());
-
-//        request(HttpMethod.PUT, uri)
-//                .as(BodyCodec.jsonObject())
-//                .
-        // send request and handle the response
-        put.sendJson( design, request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonObject> response = request.result();
-//                    printResponse(response);
-                JsonObject message = response.body();
-                if (message.containsKey("error"))
-                    promise.fail( message.toString() );
-                else
-                    promise.complete();
-            } else
-                promise.fail( request.cause() );
-        });
-
-        return promise.future();
-    }
-
-    /** Get the 'i'th document in key order from the database. */
-    public Future<JsonObject> getEvents( String umi, String product ) {
-        Promise<JsonObject> promise = Promise.promise();
-
-        // assemble the URI and arguments for the specified page
-        String uri = '/' + umi
-                + "/_design/" + product
-                + "/_view/" + CouchProduct.DEFAULT_VIEW;
-        //        "?include_docs=true&limit=1&skip=" + index; // part of a paging scheme- I don't think they do it this way anymore
-        String cookie = "AuthSession=" + token.getString("AuthSession");
-
-        // fetch the results
-        HttpRequest<JsonObject> getDoc = client.get(port, host, uri)
-                .putHeader("Accept", "application/json")
-                .putHeader("Cookie", cookie)
-                .addQueryParam("limit", "10")
-//                .addQueryParam("startkey", "")
-//                .addQueryParam("endkey", "")
-                .expect(ResponsePredicate.JSON)
-                .as(BodyCodec.jsonObject());
-
-        getDoc.send(request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonObject> response = request.result();
-//                printResponse(response);
-                promise.complete( response.body() );
-            } else
-                promise.fail( request.cause() );
-        });
-
-        return promise.future();
-    }
-    // http://localhost:5984/sensors/_design/product/_view/events?startkey=[%222020-07-17T18:30:44.752Z%22,%22s3%22]&endkey=[%222020-07-17T18:30:44.952Z%22,%22d2%22]
-
     /** https://docs.couchdb.org/en/stable/api/server/authn.html#delete--_session */
     public Future<Void> deleteSession() {
         return Future.future( promise -> {
@@ -294,13 +123,13 @@ public class CouchClient {
         return token;
     }
 
-    private void printRequest(HttpRequest<?> request) {
+    void printRequest(HttpRequest<?> request) {
         System.out.println("HEADERS:");
         request.headers().forEach( header->
             System.out.println( header.getKey()+'='+header.getValue()) );
     }
 
-    private void printResponse(HttpResponse<?> response) {
+    void printResponse(HttpResponse<?> response) {
         System.out.println("STATUS:"+response.statusCode()+"="+response.statusMessage());
 
         System.out.println("HEADERS:");

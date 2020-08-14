@@ -8,9 +8,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.codec.BodyCodec;
 
-/** A collection of client methods for performing crud operations on Missions.
- * Missions are represented in CouchDB using databasses. Ideally every event that takes place
- * during a mission should be added to the mission database as a document.
+/** Provides CRUD operations for Missions.
+ * Missions are represented in CouchDB using databases.
+ * Every event that takes place during a mission should be added to the mission database as a document.
  * @author casey */
 public class Mission {
 
