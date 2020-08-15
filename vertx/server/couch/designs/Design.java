@@ -1,7 +1,6 @@
 package server.couch.designs;
 
 import io.vertx.core.Future;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 
 /** Represents a data product */
