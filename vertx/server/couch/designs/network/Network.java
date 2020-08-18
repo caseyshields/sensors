@@ -44,12 +44,10 @@ public class Network implements Design {
                                     .put( DEFAULT_VIEW, new JsonObject()
                                             .put("map", script)
                                     )
-                            // NOTE for example, you might add a reduce script here for calculating some MOP...
+                            // we might add another map-reduce script here for calculating some MOP...
                     );
             //https://docs.couchdb.org/en/stable/api/ddoc/common.html#put--db-_design-ddoc
-            // honestly, just look at the network requests of Fauxton when you manually create views. Much more informative.
-
-            // next we have to
+            // fyi, its worth just trying stuff out in Fauxton and examining the network requests to get a clea idea what's going on
 
             promise.complete( design );
         });

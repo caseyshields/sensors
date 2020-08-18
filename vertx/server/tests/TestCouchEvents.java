@@ -3,6 +3,7 @@ package server.tests;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
@@ -89,11 +90,26 @@ public class TestCouchEvents {
             CompositeFuture.all( events )
                 .compose( v->{
                     String start = "00100";
-                    String stop = "01000";
-                    return Events.get(client, TEST_MISSION, start, stop);
+                    String stop = "01000-sim";
+//                    return Events.get(client, TEST_MISSION, start, stop);
+                    return Events.get(client, TEST_MISSION, start, 10);
+                    // TODO maybe the test should be to make two equivalent queries and match them?
                 } )
                 .onSuccess( json -> {
                     System.out.println(json.encodePrettily());
+
+                    // make sure there are a hundred events in the database
+                    context.assertEquals( json.getInteger("total_rows"), 100);
+
+                    // make sure the interval starts at the second element
+                    context.assertEquals( json.getInteger("offset"), 1);
+
+                    // make sure there are 10 events in the specified interval
+                    JsonArray rows = json.getJsonArray("rows");
+                    context.assertEquals( rows.size(), 10 );
+
+                    // meh, this isn't really an exhaustive test more of just a sanity check...
+
                     async.complete(); })
                 .onFailure( context::fail );
         } );

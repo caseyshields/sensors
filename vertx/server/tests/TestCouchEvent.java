@@ -44,26 +44,30 @@ public class TestCouchEvent {
             Async async = context.async();
             CouchClient client = context.get("client");
 
+            String stamp = "YYYY-MM-DDThh:mm:ss.sTZD";
+            String source = "file:line";
+            String id = stamp+"-"+source;
             JsonObject event = new JsonObject()
-                    .put("_id", "file:0,line:0")
+                    .put("stamp", stamp)
+                    .put("source", source)
                     .put("value", "stuff and the like");
             // TODO make something generate a sequence so we can have meaningful view interval queries...
             // should I make a fake project or should I make another simulator for product 2 in Java?....
 
             // add an event to the test database
-            Events.post(client, TEST_MISSION, event).compose( json -> {
+            Events.put(client, TEST_MISSION, stamp, source, event).compose( json -> {
 
                 // make sure the id matches and we got some revision number
                 context.assertEquals(json.getBoolean("ok"), true);
                 context.assertNotNull(json.getString("rev")); // maybe cache this so we can test performing an update?
 
                 // read the event from the test database
-                return Events.get(client, TEST_MISSION, "file:0,line:0");
+                return Events.get(client, TEST_MISSION, id);
 
             }).onSuccess( json -> {
 
                 // make sure the non-couch fields of the events match
-                context.assertEquals( json.getString("_id"), event.getString("_id") );
+                context.assertEquals( json.getString("_id"), id );
                 context.assertEquals( json.getString("value"), event.getString("value") );
                 context.assertNotNull( json.getString("_rev") );
 

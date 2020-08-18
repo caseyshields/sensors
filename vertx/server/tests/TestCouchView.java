@@ -79,7 +79,7 @@ public class TestCouchView {
                         .put("tap", "b")
                         .put("angle", n);
                 events.add(
-                        Events.post(client, TEST_MISSION, event)
+                        Events.put(client, TEST_MISSION, stamp, source, event)
                         .onSuccess( json -> {
                             // make sure the non-couch fields of the events match
 //                            context.assertEquals( json.getString("id"), event.getString("_id") );
@@ -98,12 +98,12 @@ public class TestCouchView {
                 } )
                 .onSuccess( json -> {
 
-                    System.out.println(json.encodePrettily());
+//                    System.out.println(json.encodePrettily());
 
                     // make sure there are a hundred events in the database
                     context.assertEquals( json.getInteger("total_rows"), 100);
 
-                    // make sure hte interval starts at the second element
+                    // make sure the interval starts at the second element
                     context.assertEquals( json.getInteger("offset"), 1);
 
                     // make sure there are 10 events in the specified interval

@@ -10,7 +10,8 @@ import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import io.vertx.ext.web.codec.BodyCodec;
 
-// TODO flesh out with post, and bulk operations...
+/** Interface for uploading events, and retrieving them through default and product views
+ * @author casey */
 public class Events {
 
     /** Get a specific event by it's document id.
@@ -38,41 +39,6 @@ public class Events {
          * than a few times we tried to associate raw file lines with records. This will make it trivial...*/
     }
 
-    /** Adds the event to the given mission. To supply an index provide an '_id' field in the event object.
-     * A document can be updated if you provide a current revision number in the '_rev' field of the event,
-     * or in the 'If-Match' header of the request...
-     * https://docs.couchdb.org/en/stable/api/database/common.html#post--db
-     * @return A JsonObject with the CouchDB id and revision number */
-    static public Future<JsonObject> post(CouchClient client, String umi, JsonObject event) {
-        Promise<JsonObject> promise = Promise.promise();
-
-        // post the document in the given mission database
-        client.request(HttpMethod.POST, "/"+umi)
-        // another option is to PUT at '/umi/_id' if you already have the id
-
-        // increases throughput but provides fewer guarantees.
-        //.addQueryParam("batch", "ok")
-        // Definitely worth investigating if we reach a bottleneck
-
-        .as( BodyCodec.jsonObject() )
-        .sendJsonObject( event, request -> {
-
-            if (!request.succeeded())
-                promise.fail( request.cause() );
-
-            HttpResponse<JsonObject> response = request.result();
-            JsonObject body = response.body();
-            if (body.containsKey("error"))
-                promise.fail( body.toString() );
-            else
-                promise.complete(body);
-        });
-
-        return promise.future();
-    }
-
-    // TODO need view methods; get min/max keys, get key interval, get by index interval...
-
     /** Get the 'i'th document in key order from the database. */
     static public Future<JsonObject> get(CouchClient client, String umi, String product,
                                          String start, String end ) {
@@ -82,7 +48,6 @@ public class Events {
         String uri = '/' + umi
                 + "/_design/" + product
                 + "/_view/" + Product.DefaultView;
-        //        "?include_docs=true&limit=1&skip=" + index; // part of a paging scheme- I don't think they do it this way anymore
         String cookie = "AuthSession=" + client.token.getString("AuthSession");
 
         // fetch the results
@@ -90,6 +55,9 @@ public class Events {
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
 //                .addQueryParam("limit", "10")
+                // include_docs=true
+                // limit=10
+                // skip=10
                 .addQueryParam("startkey", start)
                 .addQueryParam("endkey", end)
                 .expect(ResponsePredicate.JSON)
@@ -108,12 +76,7 @@ public class Events {
     }
     // http://localhost:5984/sensors/_design/product/_view/events?startkey=[%222020-07-17T18:30:44.752Z%22,%22s3%22]&endkey=[%222020-07-17T18:30:44.952Z%22,%22d2%22]
 
-    /** TODO best practice seems to avoid using post, and instead using put.
-     * the id's are chosen so contiguous subsets can answer your application's questions
-     * For us I think that means [chronological, source] order I think.
-     * We can still produce product views, but they will be unnecessary if the data is already
-     * uploaded in a reduced and filtered format...
-     * Force the user to provide an id for the event... */
+    /** Add an event to the Mission database. It will be indexed in chronological, source order. */
     static public Future<JsonObject> put(CouchClient client, String umi,
                                          String time, String source,
                                          JsonObject event) {
@@ -134,7 +97,7 @@ public class Events {
         return promise.future();
     }
 
-    /** Get the 'i'th document in key order from the database. */
+    /** Get all events from the mission between the two keys. */
     static public Future<JsonObject> get(CouchClient client, String umi,
                                          String start, String end ) {
         Promise<JsonObject> promise = Promise.promise();
@@ -149,6 +112,7 @@ public class Events {
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
 //                .addQueryParam("limit", "10")
+                .addQueryParam( "include_docs", "true")
                 .addQueryParam("startkey", '"'+start+'"')
                 .addQueryParam("endkey", '"'+end+'"')
                 .expect(ResponsePredicate.JSON)
@@ -170,4 +134,68 @@ public class Events {
 
         return promise.future();
     }
+
+    static public Future<JsonObject> get(
+            CouchClient client, String umi, String start, Integer limit
+    ) {
+        Promise<JsonObject> promise = Promise.promise();
+
+        // assemble the URI and arguments for the specified page
+        client.request(HttpMethod.GET, '/' + umi + "/_all_docs")
+        .addQueryParam( "include_docs", "true")
+        .addQueryParam("startkey", '"'+start+'"')
+        .addQueryParam("limit", limit.toString() )
+        .as(BodyCodec.jsonObject())
+        .send(request -> {
+            if (!request.succeeded())
+                promise.fail( request.cause() );
+
+            HttpResponse<JsonObject> response = request.result();
+            //printResponse(response);
+            JsonObject json = response.body();
+
+            if (json.containsKey("error"))
+                promise.fail( json.toString() );
+
+            promise.complete( json );
+        });
+
+        return promise.future();
+    } // TODO should I just return an array with the documents, stripping out the redundant view index info?
+
+
+    // the recommended best pratice is to avoid UUID keys and supply your own meaningful key scheme, so instead we'll flesh out the 'put' inteface...
+//    /** Adds the event to the given mission. To supply an index provide an '_id' field in the event object.
+//     * A document can be updated if you provide a current revision number in the '_rev' field of the event,
+//     * or in the 'If-Match' header of the request...
+//     * https://docs.couchdb.org/en/stable/api/database/common.html#post--db
+//     * @return A JsonObject with the CouchDB id and revision number */
+//    static public Future<JsonObject> post(CouchClient client, String umi, JsonObject event) {
+//        Promise<JsonObject> promise = Promise.promise();
+//
+//        // post the document in the given mission database
+//        client.request(HttpMethod.POST, "/"+umi)
+//        // another option is to PUT at '/umi/_id' if you already have the id
+//
+//        // increases throughput but provides fewer guarantees.
+//        //.addQueryParam("batch", "ok")
+//        // Definitely worth investigating if we reach a bottleneck
+//
+//        .as( BodyCodec.jsonObject() )
+//        .sendJsonObject( event, request -> {
+//
+//            if (!request.succeeded())
+//                promise.fail( request.cause() );
+//
+//            HttpResponse<JsonObject> response = request.result();
+//            JsonObject body = response.body();
+//            if (body.containsKey("error"))
+//                promise.fail( body.toString() );
+//            else
+//                promise.complete(body);
+//        });
+//
+//        return promise.future();
+//    }
+
 }
