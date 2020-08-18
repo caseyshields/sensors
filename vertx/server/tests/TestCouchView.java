@@ -94,7 +94,7 @@ public class TestCouchView {
                 .compose( v->{
                     String start = "[\"00100\",\"sim\"]";
                     String stop = "[\"01000\",\"sim\"]";
-                    return Events.get(client, TEST_MISSION, design.getName(), start, stop);
+                    return Events.get(client, TEST_MISSION, design.getName(), start, 10);
                 } )
                 .onSuccess( json -> {
 

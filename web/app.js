@@ -52,14 +52,14 @@ function addProducts( umi, index, tags ) {
                 .on('click', addEvents )
                 .append('h3')
                 .html( d=>d );
-        });
-    });
+        }).catch( console.log );
+    }).catch( console.log );
 }
 
 function addEvents(product, index, tags) {
     let mission = d3.select( tags[index] );
     let umi = mission.attr('data-umi');
-    console.log(umi);
+
     fetch('http://localhost:43210/api/mission/'+umi+'/product/'+product, {
         method: 'GET',
         headers: {
@@ -82,6 +82,6 @@ function addEvents(product, index, tags) {
                     .append('h4')
                     .html( d=>JSON.stringify(d) );
                     }
-        });
-    });
+        }).catch( console.log );;
+    }).catch( console.log );;
 }

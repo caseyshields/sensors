@@ -57,6 +57,9 @@ public class CaveServer extends AbstractVerticle {
                     .path("/api/mission/:mission")
                     .handler( this::getProducts );
             router.route()
+                    .path("/api/mission/:mission/event/:event")
+                    .handler( this::getEvent );
+            router.route()
                     .path("/api/mission/:mission/product/:product")
                     .handler( this::getEvents );
 
@@ -84,14 +87,8 @@ public class CaveServer extends AbstractVerticle {
         Mission.list(couchdb).onSuccess(json -> response.end(json.toString()) )
 
         // or tell the client what went wrong.
-        .onFailure( error -> {
-            JsonObject message = new JsonObject()
-                    .put("type", error.getCause().getClass().getName())
-                    .put("message", error.getMessage());
-            response.end(message.toString());
-
-//            context.fail( error );
-        }); // TODO prob really shouldn't tell the outside world what's going on in here...
+        .onFailure( error -> response.end(error.getMessage()) ); // context.fail( error );
+        // TODO prob really shouldn't tell the outside world what's going on in here...
     }
 
     public void getProducts( RoutingContext context ) {
@@ -103,12 +100,20 @@ public class CaveServer extends AbstractVerticle {
 
         Product.list(couchdb, umi)
         .onSuccess( json -> response.end(json.toString()) )
-        .onFailure( error -> {
-            JsonObject message = new JsonObject()
-                    .put("type", error.getCause().getClass().getName())
-                    .put("message", error.getMessage());
-            response.end(message.toString());
-        });
+        .onFailure( error -> response.end(error.getMessage()) );
+    }
+
+    public void getEvent( RoutingContext context ) {
+        HttpServerResponse response = context.response();
+        response.putHeader( "content-type", "Application/json");
+
+        HttpServerRequest request = context.request();
+        String umi = request.getParam("mission");
+        String event = request.getParam("event");
+
+        Events.get(couchdb, umi, event )
+                .onSuccess( json -> response.end(json.toString()) )
+                .onFailure( error -> response.end(error.getMessage()) );
     }
 
     public void getEvents( RoutingContext context ) {
@@ -119,15 +124,11 @@ public class CaveServer extends AbstractVerticle {
         String umi = request.getParam("mission");
         String product = request.getParam("product");
 
-        Events.get(couchdb, umi, product )
+        Events.get(couchdb, umi, product, "", 10 )
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> {
-            JsonObject message = new JsonObject()
-                    .put("type", error.getCause().getClass().getName())
-                    .put("message", error.getMessage());
-            response.end(message.toString());
-        });
-
+                response.end(error.getMessage());
+        } );
     }
 
     public void stop(Promise<Void> promise) {
