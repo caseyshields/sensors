@@ -3,6 +3,7 @@ package server.couch;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
@@ -73,7 +74,8 @@ public class Events {
     // TODO need view methods; get min/max keys, get key interval, get by index interval...
 
     /** Get the 'i'th document in key order from the database. */
-    static public Future<JsonObject> get(CouchClient client, String umi, String product, int start, int end ) {
+    static public Future<JsonObject> get(CouchClient client, String umi, String product,
+                                         String start, String end ) {
         Promise<JsonObject> promise = Promise.promise();
 
         // assemble the URI and arguments for the specified page
@@ -87,9 +89,9 @@ public class Events {
         HttpRequest<JsonObject> getDoc = client.client.get(client.port, client.host, uri)
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
-                .addQueryParam("limit", "10")
-//                .addQueryParam("startkey", "")
-//                .addQueryParam("endkey", "")
+//                .addQueryParam("limit", "10")
+                .addQueryParam("startkey", start)
+                .addQueryParam("endkey", end)
                 .expect(ResponsePredicate.JSON)
                 .as(BodyCodec.jsonObject());
 
@@ -106,4 +108,61 @@ public class Events {
     }
     // http://localhost:5984/sensors/_design/product/_view/events?startkey=[%222020-07-17T18:30:44.752Z%22,%22s3%22]&endkey=[%222020-07-17T18:30:44.952Z%22,%22d2%22]
 
+    /** TODO best practice seems to avoid using post, and instead using put.
+     * the id's are chosen so contiguous subsets can answer your application's questions
+     * For us I think that means [chronological, source] order I think.
+     * We can still produce product views, but they will be unnecessary if the data is already
+     * uploaded in a reduced and filtered format...
+     * Force the user to provide an id for the event... */
+    static public Future<JsonObject> put(CouchClient client, String umi,
+                                         String time, String source,
+                                         JsonObject event) {
+        Promise<JsonObject> promise = Promise.promise();
+        client.request(HttpMethod.PUT, "/"+umi+"/"+time+","+source)
+                .as(BodyCodec.jsonObject())
+                .sendJsonObject( event, request -> {
+                    if (!request.succeeded())
+                        promise.fail( request.cause() );
+
+                    HttpResponse<JsonObject> response = request.result();
+                    JsonObject body = response.body();
+                    if (body.containsKey("error"))
+                        promise.fail( body.toString() );
+                    else
+                        promise.complete(body);
+                });
+        return promise.future();
+    }
+
+    /** Get the 'i'th document in key order from the database. */
+    static public Future<JsonObject> get(CouchClient client, String umi,
+                                         String start, String end ) {
+        Promise<JsonObject> promise = Promise.promise();
+
+        // assemble the URI and arguments for the specified page
+        String uri = '/' + umi + "/";
+        //        "?include_docs=true&limit=1&skip=" + index; // part of a paging scheme- I don't think they do it this way anymore
+        String cookie = "AuthSession=" + client.token.getString("AuthSession");
+
+        // fetch the results
+        HttpRequest<JsonObject> getDoc = client.client.get(client.port, client.host, uri)
+                .putHeader("Accept", "application/json")
+                .putHeader("Cookie", cookie)
+//                .addQueryParam("limit", "10")
+                .addQueryParam("startkey", start)
+                .addQueryParam("endkey", end)
+                .expect(ResponsePredicate.JSON)
+                .as(BodyCodec.jsonObject());
+
+        getDoc.send(request -> {
+            if (request.succeeded()) {
+                HttpResponse<JsonObject> response = request.result();
+//                printResponse(response);
+                promise.complete( response.body() );
+            } else
+                promise.fail( request.cause() );
+        });
+
+        return promise.future();
+    }
 }
