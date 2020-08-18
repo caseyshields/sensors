@@ -1,5 +1,7 @@
 package server.tests;
 
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -9,7 +11,14 @@ import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.CouchClient;
 import server.couch.Events;
 import server.couch.Mission;
+import server.couch.Product;
+import server.couch.designs.Design;
+import server.couch.designs.network.Network;
 
+import java.util.ArrayList;
+import java.util.List;
+
+/** Test event creation and retrieval using only the default view. */
 public class TestCouchEvents {
 
     public static String TEST_MISSION = "test_mission";
@@ -22,6 +31,9 @@ public class TestCouchEvents {
 
             Vertx vertx = Vertx.vertx();
             context.put("vertx", vertx);
+
+            Design design = new Network();
+            context.put( "design", design );
 
             // get the session token from the database
             CouchClient client = new CouchClient( vertx,"localhost", 5984);
@@ -38,38 +50,52 @@ public class TestCouchEvents {
             })
             .onSuccess( v->async.complete() )
             .onFailure( context::fail );
-
         });
 
         suite.test( "event_crud", context -> {
             Async async = context.async();
             CouchClient client = context.get("client");
+            Design design = context.get("design");
 
-            JsonObject event = new JsonObject()
-                    .put("_id", "file:0,line:0")
-                    .put("value", "stuff and the like");
-            // TODO make something generate a sequence so we can have meaningful view interval queries...
-            // should I make a fake project or should I make another simulator for product 2 in Java?....
+            // add a hundred test events to the mission database
+            List<Future> events = new ArrayList<Future>();
+            for (int n = 0; n<100; n++) {
 
-            // add an event to the test database
-            Events.post(client, TEST_MISSION, event).compose( json -> {
+                // ordering is lexical so we need to pad numeric values
+                String stamp = String.format("%05d", n*100);
 
-                // make sure the id matches and we got some revision number
-                context.assertEquals(json.getBoolean("ok"), true);
-                context.assertNotNull(json.getString("rev")); // maybe cache this so we can test performing an update?
+                String source = "sim";
+                JsonObject event = new JsonObject()
+                        .put("time", n*100)
+                        .put("stamp", stamp)
+                        .put("source", source)
+                        .put("target", "test")
+                        .put("class", "strobe")
+                        .put("sic", "a")
+                        .put("tap", "b")
+                        .put("angle", n * 2.5 / Math.PI);
+                events.add(
+                        Events.put(client, TEST_MISSION, stamp, source, event)
+                        .onSuccess( json -> {
+                            // make sure the non-couch fields of the events match
+                            context.assertTrue( json.getBoolean("ok") );
+                            String key = stamp+"-"+source;
+                            context.assertEquals( json.getString("id"), key );
+                            context.assertNotNull( json.getString("rev") );
+                        })
+                );
+            }
 
-                // read the event from the test database
-                return Events.get(client, TEST_MISSION, "file:0,line:0");
-
-            }).onSuccess( json -> {
-
-                // make sure the non-couch fields of the events match
-                context.assertEquals( json.getString("_id"), event.getString("_id") );
-                context.assertEquals( json.getString("value"), event.getString("value") );
-                context.assertNotNull( json.getString("_rev") );
-
-                async.complete();
-            }).onFailure( context::fail );
+            CompositeFuture.all( events )
+                .compose( v->{
+                    String start = "00100";
+                    String stop = "01000";
+                    return Events.get(client, TEST_MISSION, start, stop);
+                } )
+                .onSuccess( json -> {
+                    System.out.println(json.encodePrettily());
+                    async.complete(); })
+                .onFailure( context::fail );
         } );
 
         // TODO add a test for accessing a Product's view of events...
@@ -89,4 +115,24 @@ public class TestCouchEvents {
                 new TestOptions().addReporter(
                         new ReportOptions().setTo("console")));
     }
+
+    // a recursive approach...
+//    private Future<JsonObject> simulate(CouchClient client, int n) {
+//        JsonObject event =  new JsonObject()
+//                .put("time", n)
+//                .put("stamp", Integer.toString(n))
+//                .put( "source", "sim" )
+//                .put( "target", "test")
+//                .put( "class", "strobe" )
+//                .put( "sic", "a" )
+//                .put( "tap", "b" )
+//                .put( "angle", n*2.5/Math.PI );
+//        Future<JsonObject> post = Events.post(client, TEST_MISSION, event);
+//        if (n<100)
+//            post.compose( json -> {
+//                return simulate(client, n+1);
+//            } );
+//        return post;
+//    }
+
 }

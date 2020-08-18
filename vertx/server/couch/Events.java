@@ -118,7 +118,7 @@ public class Events {
                                          String time, String source,
                                          JsonObject event) {
         Promise<JsonObject> promise = Promise.promise();
-        client.request(HttpMethod.PUT, "/"+umi+"/"+time+","+source)
+        client.request(HttpMethod.PUT, "/"+umi+"/"+time+"-"+source)
                 .as(BodyCodec.jsonObject())
                 .sendJsonObject( event, request -> {
                     if (!request.succeeded())
@@ -140,7 +140,7 @@ public class Events {
         Promise<JsonObject> promise = Promise.promise();
 
         // assemble the URI and arguments for the specified page
-        String uri = '/' + umi + "/";
+        String uri = '/' + umi + "/_all_docs";
         //        "?include_docs=true&limit=1&skip=" + index; // part of a paging scheme- I don't think they do it this way anymore
         String cookie = "AuthSession=" + client.token.getString("AuthSession");
 
@@ -149,18 +149,23 @@ public class Events {
                 .putHeader("Accept", "application/json")
                 .putHeader("Cookie", cookie)
 //                .addQueryParam("limit", "10")
-                .addQueryParam("startkey", start)
-                .addQueryParam("endkey", end)
+                .addQueryParam("startkey", '"'+start+'"')
+                .addQueryParam("endkey", '"'+end+'"')
                 .expect(ResponsePredicate.JSON)
                 .as(BodyCodec.jsonObject());
 
         getDoc.send(request -> {
-            if (request.succeeded()) {
-                HttpResponse<JsonObject> response = request.result();
-//                printResponse(response);
-                promise.complete( response.body() );
-            } else
+            if (!request.succeeded())
                 promise.fail( request.cause() );
+
+            HttpResponse<JsonObject> response = request.result();
+            //printResponse(response);
+            JsonObject json = response.body();
+
+            if (json.containsKey("error"))
+                promise.fail( json.toString() );
+
+            promise.complete( json );
         });
 
         return promise.future();
