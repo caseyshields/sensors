@@ -7,7 +7,6 @@ import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.Couch;
-import server.couch.Events;
 import server.couch.Database;
 
 public class TestCouchEvent {
@@ -32,10 +31,9 @@ public class TestCouchEvent {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return Database.put(client, TEST_MISSION );
-
-                //TODO add a product so we can test views as well...
+                return client.put( TEST_MISSION );
             })
+            .compose( db -> context.put("db", db) )
             .onSuccess( v->async.complete() )
             .onFailure( context::fail );
         });
@@ -43,6 +41,7 @@ public class TestCouchEvent {
         suite.test( "event_crud", context -> {
             Async async = context.async();
             Couch client = context.get("client");
+            Database mission = context.get("mission");
 
             String stamp = "YYYY-MM-DDThh:mm:ss.sTZD";
             String source = "file:line";
@@ -55,14 +54,14 @@ public class TestCouchEvent {
             // should I make a fake project or should I make another simulator for product 2 in Java?....
 
             // add an event to the test database
-            Events.put(client, TEST_MISSION, stamp, source, event).compose( json -> {
+            mission.put(id, event).compose( json -> {
 
                 // make sure the id matches and we got some revision number
                 context.assertEquals(json.getBoolean("ok"), true);
                 context.assertNotNull(json.getString("rev")); // maybe cache this so we can test performing an update?
 
                 // read the event from the test database
-                return Events.get(client, TEST_MISSION, id);
+                return mission.get(id);
 
             }).onSuccess( json -> {
 
@@ -81,7 +80,7 @@ public class TestCouchEvent {
         suite.after( context -> {
             Async async = context.async();
             Couch client = context.get("client");
-            Database.delete(client, TEST_MISSION)
+            client.delete( TEST_MISSION )
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );

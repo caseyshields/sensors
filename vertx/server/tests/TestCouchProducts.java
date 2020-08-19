@@ -29,32 +29,38 @@ public class TestCouchProducts {
 
             // get the session token from the database
             Couch client = new Couch( vertx,"localhost", 5984);
-            client.getSession("admin","Preceptor").onSuccess( token -> {
+            client.getSession("admin","Preceptor").compose( token -> {
 
                 // cache the client for subsequest test requests
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                Database.put(client, TEST_MISSION )
-                        .onSuccess( v->async.complete() )
-                        .onFailure( context::fail );
+                return client.put( TEST_MISSION );
 
-            }).onFailure( context::fail );
+            }).onSuccess( mission-> {
+
+                // cache the mission in the test context
+                context.put("mission", mission);
+
+                async.complete();
+            } )
+            .onFailure( context::fail );
         });
 
         suite.test("ProductCrud", context -> {
-            Couch client = context.get("client");
             Async result = context.async();
+            Couch client = context.get("client");
+            Database mission = context.get("mission");
 
             Design design = new Network();
 
 
             // add the configuration to CouchDB
-            View.put(client, TEST_MISSION, design).onSuccess(v-> {
+            mission.putView(design).onSuccess( view -> {
 
                 // get the products design doc from configuration and Couchdb
                 Future<JsonObject> config = design.getDesignDocument();
-                Future<JsonObject> couch = View.get(client, TEST_MISSION, design.getName());
+                Future<JsonObject> couch = view.get();
 
                 // once you have them both
                 CompositeFuture.all( config, couch ).onSuccess( ar -> {
@@ -80,9 +86,8 @@ public class TestCouchProducts {
             Async async = context.async();
             Couch client = context.get("client");
 
-            // delete the test mission database
-            Database.delete(client, TEST_MISSION)
-            .onComplete( msg -> {
+            // delete the test mission database, this will also delete all design documents
+            client.delete( TEST_MISSION ).onComplete( msg -> {
 
                 // delete the user session
                 client.deleteSession()

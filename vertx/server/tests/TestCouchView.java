@@ -10,7 +10,6 @@ import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.Couch;
-import server.couch.Events;
 import server.couch.Database;
 import server.couch.View;
 import server.couch.designs.Design;
@@ -36,30 +35,32 @@ public class TestCouchView {
             Design design = new Network();
             context.put( "design", design );
 
-            // get the session token from the database
+            // get the session token from the database and cache it
             Couch client = new Couch( vertx,"localhost", 5984);
-            client.getSession("admin","Preceptor")
-            .compose( token -> {
-
-                // cache the client for subsequest test requests
+            client.getSession("admin","Preceptor").compose( token -> {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return Database.put(client, TEST_MISSION );
+                return client.put( TEST_MISSION );
 
-                //TODO add a product so we can test views as well...
-            })
-            .compose( v-> {
+            }).compose( mission -> {
+                context.put("mission", mission);
+
                 // then create a product view to test out
-                return View.put(client, TEST_MISSION, design);
-            })
-            .onSuccess( v->async.complete() )
+                return mission.putView( design );
+
+            }).onSuccess( view -> {
+                context.put("product", view);
+                async.complete();
+            } )
             .onFailure( context::fail );
         });
 
         suite.test( "event_crud", context -> {
             Async async = context.async();
             Couch client = context.get("client");
+            Database mission = context.get("mission");
+            View product = context.get("product");
             Design design = context.get("design");
 
             // add a hundred test events to the mission database
@@ -67,6 +68,7 @@ public class TestCouchView {
             for (int n = 0; n<100; n++) {
                 String stamp = String.format("%05d", n*100);
                 String source = "sim";
+                String id = stamp+"-"+source;
                 JsonObject event = new JsonObject()
 //                        .put("_id", "sim"+n)
                         .put("time", n*100)
@@ -78,11 +80,10 @@ public class TestCouchView {
                         .put("tap", "b")
                         .put("angle", n);
                 events.add(
-                        Events.put(client, TEST_MISSION, stamp, source, event)
+                        mission.put( id, event)
                         .onSuccess( json -> {
                             // make sure the non-couch fields of the events match
-//                            context.assertEquals( json.getString("id"), event.getString("_id") );
-                            context.assertNotNull( json.getString("id") );
+                            context.assertEquals( json.getString("id"), id );
                             context.assertEquals( json.getString("value"), event.getString("value") );
                             context.assertNotNull( json.getString("rev") );
                         })
@@ -93,7 +94,7 @@ public class TestCouchView {
                 .compose( v->{
                     String start = "[\"00100\",\"sim\"]";
                     String stop = "[\"01000\",\"sim\"]";
-                    return Events.get(client, TEST_MISSION, design.getName(), start, 10);
+                    return product.get(start, 10);
                 } )
                 .onSuccess( json -> {
 
@@ -122,7 +123,9 @@ public class TestCouchView {
         suite.after( context -> {
             Async async = context.async();
             Couch client = context.get("client");
-            Database.delete(client, TEST_MISSION)
+
+            // deleting the database also deletes all it's documents
+            client.delete(TEST_MISSION)
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );

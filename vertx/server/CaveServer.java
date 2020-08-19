@@ -83,7 +83,7 @@ public class CaveServer extends AbstractVerticle {
         response.putHeader("content-type", "Application/json");
 
         // get a list of missions and send it to the client
-        Database.list(couchdb).onSuccess(json -> response.end(json.toString()) )
+        couchdb.list().onSuccess(json -> response.end(json.toString()) )
 
         // or tell the client what went wrong.
         .onFailure( error -> response.end(error.getMessage()) ); // context.fail( error );
@@ -97,7 +97,8 @@ public class CaveServer extends AbstractVerticle {
         HttpServerRequest request = context.request();
         String umi = request.getParam("mission");
 
-        View.list(couchdb, umi)
+        Database mission = new Database(couchdb, umi);
+        mission.views()
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> response.end(error.getMessage()) );
     }
@@ -110,7 +111,8 @@ public class CaveServer extends AbstractVerticle {
         String umi = request.getParam("mission");
         String event = request.getParam("event");
 
-        Events.get(couchdb, umi, event )
+        Database mission = new Database(couchdb, umi);
+        mission.get( event )
                 .onSuccess( json -> response.end(json.toString()) )
                 .onFailure( error -> response.end(error.getMessage()) );
     }
@@ -123,7 +125,9 @@ public class CaveServer extends AbstractVerticle {
         String umi = request.getParam("mission");
         String product = request.getParam("product");
 
-        Events.get(couchdb, umi, product, "", 10 )
+        Database mission = new Database(couchdb, umi);
+        View view = mission.getView(product);
+        view.get( "", 10 )
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> {
                 response.end(error.getMessage());

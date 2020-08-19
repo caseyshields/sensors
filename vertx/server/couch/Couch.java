@@ -12,22 +12,21 @@ import io.vertx.ext.web.codec.BodyCodec;
 
 import java.util.Arrays;
 
-/** So a Vertx client is already written for MongoDB...
- * might want to just switch to that rather than trying to write our own interface.
- * then again, will have to figure something out for interoperability with dolphin,
- * the new simulator, and we have to figure out queries and view over again...*/
+/** Provides a client interface for a couchDB instance
+ * @author Casey  */
 public class Couch {
 
     Vertx vertx;
-    WebClient client; // the client used to make HTTP requests to the CouchDB's REST API
-    JsonObject token; // the current access token
+    WebClient client;
+    JsonObject token;
     String host;
     int port;
+    // todo eventually things like current mission and roles should be stored in a user session...
 
-    // TODO eventually things like current mission and roles should be stored in a user session...
-
-    /** Obtain a session cookie using credentials in configuration.
-     * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
+    /** Initializes a client but does not connect
+     * @param vertx a Vert.x context
+     * @param host the ip or url of the CouchDB instance
+     * @param port the CouchDB REST API port. Usually http is on 5984, and https is on 6984 */
     public Couch(Vertx vertx, String host, int port) {
         this.vertx = vertx; //Vertx.currentContext().owner();
         this.client = WebClient.create(vertx);
@@ -35,6 +34,8 @@ public class Couch {
         this.port = port;
     }
 
+    /** Obtain a session cookie and caches them in the client.
+     * https://docs.couchdb.org/en/stable/api/server/authn.html#cookie-authentication */
     public Future<JsonObject> getSession(String name, String password) {
         Promise<JsonObject> promise = Promise.promise();
 
@@ -119,8 +120,9 @@ public class Couch {
         return promise.future();
     }
 
-    /** https://docs.couchdb.org/en/stable/api/database/common.html#head--db
-     * @return whether a database for the given mission exists */
+    /** Asynchronously produces the database if it exists in CouchDB, otherwise fails.
+     * https://docs.couchdb.org/en/stable/api/database/common.html#head--db
+     * @return a Future producing the Database */
     public Future<Database> get(String db) {
         Promise<Database> promise = Promise.promise();
 
@@ -136,7 +138,8 @@ public class Couch {
             }
 //            else if (response.statusCode()==404)
 //                promise.complete( null ); // should I fail? prob should be distinct from a network error...
-            else promise.fail("Invalid Status Code");
+//            else promise.fail("Invalid Status Code");
+            promise.fail("Database \""+db+"\" does not exist");
         });
         return promise.future();
     }
@@ -233,10 +236,21 @@ public class Couch {
         return token;
     }
 
+// once I see some common patterns in the couch API I might want to make some custom response Predicates...
+//    Function<HttpResponse<Void>, ResponsePredicateResult> methodsPredicate = resp -> {
+//        String methods = resp.getHeader("Access-Control-Allow-Methods");
+//        if (methods != null) {
+//            if (methods.contains("POST")) {
+//                return ResponsePredicateResult.success();
+//            }
+//        }
+//        return ResponsePredicateResult.failure("Does not work");
+//    };
+
     void printRequest(HttpRequest<?> request) {
         System.out.println("HEADERS:");
         request.headers().forEach( header->
-            System.out.println( header.getKey()+'='+header.getValue()) );
+                System.out.println( header.getKey()+'='+header.getValue()) );
     }
 
     void printResponse(HttpResponse<?> response) {
@@ -255,46 +269,4 @@ public class Couch {
         System.out.println("TRAILERS:");
         response.trailers().forEach( System.out::println );
     }
-
-// once I see some common patterns in the couch API I might want to make some custom response Predicates...
-//    Function<HttpResponse<Void>, ResponsePredicateResult> methodsPredicate = resp -> {
-//        String methods = resp.getHeader("Access-Control-Allow-Methods");
-//        if (methods != null) {
-//            if (methods.contains("POST")) {
-//                return ResponsePredicateResult.success();
-//            }
-//        }
-//        return ResponsePredicateResult.failure("Does not work");
-//    };
 }
-
-//    public Future<JsonObject> getSession(String name, String password) {
-//        Promise<JsonObject> promise = Promise.promise();
-//
-//        JsonObject credentials = new JsonObject()
-//                .put("name", name)
-//                .put("password", password);
-//
-//        request(HttpMethod.POST, "/_session", credentials, request -> {
-//
-//            if (!request.succeeded())
-//                promise.fail(request.cause());
-//            HttpResponse<JsonObject> response = request.result();
-////            printResponse( response );
-//
-//            // make sure we have admin role
-//            JsonObject body = response.body();
-//            if (body.containsKey("error"))
-//                promise.fail(body.getString("error"));
-//            if (!body.getJsonArray("roles").contains("_admin"))
-//                promise.fail("not an administrator");
-//            // TODO hmm, will I eventually need any of the role information?
-//
-//            // parse and return the session cookie as a JsonObject
-//            String cookie = response.getHeader("Set-Cookie");
-//            JsonObject token = parseCookie(cookie);
-//            this.token = token;
-//            promise.complete( token );
-//        });
-//        return promise.future();
-//    }

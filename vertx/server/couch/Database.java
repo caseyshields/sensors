@@ -3,13 +3,13 @@ package server.couch;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.codec.BodyCodec;
+import server.couch.designs.Design;
 
-/** Provides CRUD operations for Missions.
- * Missions are represented in CouchDB using databases.
- * Every event that takes place during a mission should be added to the mission database as a document.
+/** Represents a database in CouchDB and provides operations for documents and views.
  * @author casey */
 public class Database {
 
@@ -19,7 +19,6 @@ public class Database {
     public Database(Couch client, String db) {
         this.client = client;
         this.db = db;
-        // todo make private and add builder to couch client...
     }
 
     public Couch getClient() { return client; }
@@ -47,7 +46,8 @@ public class Database {
         return promise.future();
     }
 
-    /** Add an event to the Mission database. It will be indexed in chronological, source order.
+    /** Add an event to the Mission database.
+     * @param id the key used to index the document. Also used to access the document in the default view.
      * */
     public Future<JsonObject> put(String id, JsonObject event) {
         Promise<JsonObject> promise = Promise.promise();
@@ -69,7 +69,9 @@ public class Database {
         return promise.future();
     }
 
-    /** Get all events from the mission between the two keys. */
+    /** Fetch events from the default view.
+     * @param start the lowest key in lexographic order, inclusive
+     * @param end the highest key in lexographic order, inclusive*/
     public Future<JsonObject> get(String start, String end) {
         Promise<JsonObject> promise = Promise.promise();
 
@@ -95,6 +97,9 @@ public class Database {
         return promise.future();
     }
 
+    /** Fetch events from the default view
+     * @param start lowest key in lexographic order
+     * @param limit the maximum number of documents to retrieve */
     public Future<JsonObject> get(String start, Integer limit) {
         Promise<JsonObject> promise = Promise.promise();
 
@@ -120,4 +125,72 @@ public class Database {
         return promise.future();
     } // TODO should I just return an array with the documents, stripping out the redundant view index info?
 
+    // todo document update and delete?
+
+    /** Get a list of all available views of the database*/
+    public Future<JsonArray> views() {
+        Promise<JsonArray> promise = Promise.promise();
+        client.request( HttpMethod.GET, "/"+ db +"/_design_docs")
+                .as(BodyCodec.jsonObject())
+                .send( request -> {
+                    if (request.succeeded()) {
+                        HttpResponse<JsonObject> response = request.result();
+                        JsonObject body = response.body();
+                        JsonArray products = new JsonArray();
+
+                        // get the list of design documents
+                        JsonArray rows = body.getJsonArray("rows");
+                        rows.forEach( row -> {
+
+                            // trim the conventional design document prefix
+                            String id = ((JsonObject)row).getString("id");
+                            String view = id.substring( 1 + id.lastIndexOf("/") );
+
+                            // the views correspond to data products
+                            products.add( view );
+                        });
+                        promise.complete(products);
+                    } else
+                        promise.fail( request.cause() );
+                } );
+        return promise.future();
+    }
+
+    /** Creates a view object without consulting the database
+     * @param design the name of the design document, it should match an already existing document.
+     * @return a View object for the created design */
+    public View getView(String design) {
+        return new View(client, db, design);
+    }
+
+    /** Creates a design doc and adds it to the database
+     * @param design produces the actual JSON design document
+     * @return a View object for the created design */
+    public Future<View> putView(Design design) {
+        Promise<View> promise = Promise.promise();
+
+        design.getDesignDocument().onSuccess( document -> {
+
+            String uri = "/" + db + "/_design/" + design.getName();
+            client.request(HttpMethod.PUT, uri)
+            .as(BodyCodec.jsonObject())
+            .sendJsonObject(document, request -> {
+
+                if (!request.succeeded())
+                    promise.fail(request.cause());
+
+                HttpResponse<JsonObject> response = request.result();
+                JsonObject message = response.body();
+
+                if (message.containsKey("error"))
+                    promise.fail(message.toString());
+
+                View view = new View(client, db, design.getName());
+                promise.complete( view );
+            });
+
+        }).onFailure( promise::fail );
+
+        return promise.future();
+    }
 }
