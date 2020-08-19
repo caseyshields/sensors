@@ -4,16 +4,16 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import server.couch.designs.Design;
-
 
 /** Provides a CouchDB Design Document for the Network visualization data product.
  * It has one default view which is all events in chronological order.
  * The key is constructed from the events' timestamps and sources. */
-public class Network implements Design {
+public class Network {
 
     /** this should be the name provided to the design document in the mission database */
     public static final String DESIGN_NAME = "network";
+
+    public static final String DefaultView = "events";
 
     /** By convention each design should contain a default view named 'events'.
      * It should provide a chronological view of events in [time, source] order */

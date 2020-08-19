@@ -11,11 +11,15 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.StaticHandler;
 import server.couch.Couch;
 import server.couch.Database;
+import server.couch.Design;
 import server.couch.View;
 
 public class CaveServer extends AbstractVerticle {
 
     Couch couchdb;
+
+    /** todo technically a design document can have many views of different types. We'll cross that bridge when the need arises... */
+    static final String DefaultView = "events";
 
     public static void main(String[] args) {
         JsonObject config = new JsonObject()
@@ -98,7 +102,7 @@ public class CaveServer extends AbstractVerticle {
         String umi = request.getParam("mission");
 
         Database mission = new Database(couchdb, umi);
-        mission.getViews()
+        mission.getDesigns()
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> response.end(error.getMessage()) );
     }
@@ -126,8 +130,9 @@ public class CaveServer extends AbstractVerticle {
         String product = request.getParam("product");
 
         Database mission = new Database(couchdb, umi);
-        View view = mission.getView(product);
-        view.getDocs( "", 10 )
+        Design design = new Design(couchdb, mission.getName(), product);
+        View view = design.getView(DefaultView);
+        view.getDocs( "\"\"", 10 )
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> {
                 response.end(error.getMessage());

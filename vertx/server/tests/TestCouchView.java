@@ -11,8 +11,8 @@ import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.Couch;
 import server.couch.Database;
+import server.couch.Design;
 import server.couch.View;
-import server.couch.designs.Design;
 import server.couch.designs.network.Network;
 
 import java.util.ArrayList;
@@ -32,9 +32,6 @@ public class TestCouchView {
             Vertx vertx = Vertx.vertx();
             context.put("vertx", vertx);
 
-            Design design = new Network();
-            context.put( "design", design );
-
             // get the session token from the database and cache it
             Couch client = new Couch( vertx,"localhost", 5984);
             client.getSession("admin","Preceptor").compose( token -> {
@@ -44,13 +41,20 @@ public class TestCouchView {
                 return client.putDatabase( TEST_MISSION );
 
             }).compose( mission -> {
-                context.put("mission", mission);
+                        context.put("mission", mission);
 
-                // then create a product view to test out
-                return mission.putView( design );
+                        // load a design document
+                        Network network = new Network();
+                        return network.getDesignDocument().compose( ddoc -> {
 
-            }).onSuccess( view -> {
-                context.put("product", view);
+                            // and add it to the database
+                            return mission.putDesign(network.getName(), ddoc);
+                        } );// need both mission and ddoc futures in scope hence this nested compose... is ther a clearer way?
+
+            }).onSuccess( design -> {
+
+                // cache the design
+                context.put("design", design);
                 async.complete();
             } )
             .onFailure( context::fail );
@@ -60,7 +64,6 @@ public class TestCouchView {
             Async async = context.async();
             Couch client = context.get("client");
             Database mission = context.get("mission");
-            View product = context.get("product");
             Design design = context.get("design");
 
             // add a hundred test events to the mission database
@@ -94,11 +97,12 @@ public class TestCouchView {
                 .compose( v->{
                     String start = "[\"00100\",\"sim\"]";
                     String stop = "[\"01000\",\"sim\"]";
-                    return product.getDocs(start, 10);
+                    View view = design.getView(Network.DefaultView);
+                    return view.getDocs(start, 10);
                 } )
                 .onSuccess( json -> {
 
-//                    System.out.println(json.encodePrettily());
+                    System.out.println(json.encodePrettily());
 
                     // make sure there are a hundred events in the database
                     context.assertEquals( json.getInteger("total_rows"), 100);

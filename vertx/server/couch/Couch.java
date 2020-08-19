@@ -12,6 +12,8 @@ import io.vertx.ext.web.codec.BodyCodec;
 
 import java.util.Arrays;
 
+// todo LightCouch is a project with a very clean api that reflects the rest api very well. It would introduce about 5 more dependencies for GSON, apache commons, http client, etc. Might be worth adding if we start adding many more use cases.
+
 /** Provides a client interface for a couchDB instance
  * @author Casey  */
 public class Couch {
@@ -120,27 +122,16 @@ public class Couch {
         return promise.future();
     }
 
-    /** Asynchronously produces the database if it exists in CouchDB, otherwise fails.
-     * https://docs.couchdb.org/en/stable/api/database/common.html#head--db
-     * @return a Future producing the Database */
+    /** @return a Future producing the Database if it is found, and otherwise fails. */
     public Future<Database> getDatabase(String db) {
         Promise<Database> promise = Promise.promise();
-
-        request(HttpMethod.HEAD, "/"+db)
-        .send( request -> {
-            if (!request.succeeded())
-                promise.fail( request.cause() );
-
-            HttpResponse response = request.result();
-            if (response.statusCode()==200) {
-                Database database = new Database(this, db);
-                promise.complete(database);
-            }
-//            else if (response.statusCode()==404)
-//                promise.complete( null ); // should I fail? prob should be distinct from a network error...
-//            else promise.fail("Invalid Status Code");
-            promise.fail("Database \""+db+"\" does not exist");
-        });
+        Database database = new Database(this, db);
+        database.exists().onSuccess( existence -> {
+            if (existence)
+                promise.complete( database );
+            else
+                promise.fail( "\""+db+"\" does not exist" );
+        }).onFailure( promise::fail );
         return promise.future();
     }
 
@@ -149,22 +140,10 @@ public class Couch {
      * https://docs.couchdb.org/en/stable/api/database/common.html#put--db */
     public Future<Database> putDatabase(String db ) {
         Promise<Database> promise = Promise.promise();
-
-        request(HttpMethod.PUT, "/" + db)
-                .as(BodyCodec.jsonObject())
-                .send( request -> {
-                    if (!request.succeeded())
-                        promise.fail( request.cause() );
-
-                    HttpResponse<JsonObject> response = request.result();
-                    JsonObject body = response.body();
-                    if (body.containsKey("error"))
-                        promise.fail( body.toString() );
-
-                    Database database = new Database(this, db);
-                    promise.complete( database );
-                });
-
+        Database database = new Database(this, db);
+        database.create(db)
+                .onSuccess( v-> promise.complete( database ))
+                .onFailure( promise::fail );
         return promise.future();
     }
 

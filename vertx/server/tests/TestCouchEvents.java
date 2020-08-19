@@ -11,7 +11,7 @@ import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.Couch;
 import server.couch.Database;
-import server.couch.designs.Design;
+import server.couch.View;
 import server.couch.designs.network.Network;
 
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ public class TestCouchEvents {
             Vertx vertx = Vertx.vertx();
             context.put("vertx", vertx);
 
-            Design design = new Network();
+            Network design = new Network();
             context.put( "design", design );
 
             // get the session token from the database
@@ -60,7 +60,7 @@ public class TestCouchEvents {
             Async async = context.async();
             Couch client = context.get("client");
             Database db = context.get("db");
-            Design design = context.get("design");
+            Network design = context.get("design");
 
             // add a hundred test events to the mission database
             List<Future> events = new ArrayList<Future>();
@@ -91,10 +91,11 @@ public class TestCouchEvents {
 
             CompositeFuture.all( events )
                 .compose( v->{
-                    String start = "00100";
-                    String stop = "01000-sim";
+                    String start = "\"00100\"";
+                    String stop = "\"01000-sim\"";
 //                    return Events.get(client, TEST_MISSION, start, stop);
-                    return db.getDocs(start, 10);
+                    View view = db.getDefaultView();
+                    return view.getDocs(start, 10);
                     // TODO maybe the test should be to make two equivalent queries and match them?
                 } )
                 .onSuccess( json -> {
@@ -111,7 +112,6 @@ public class TestCouchEvents {
                     context.assertEquals( rows.size(), 10 );
 
                     // meh, this isn't really an exhaustive test more of just a sanity check...
-
                     async.complete(); })
                 .onFailure( context::fail );
         } );

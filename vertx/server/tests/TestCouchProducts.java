@@ -10,7 +10,6 @@ import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.Couch;
 import server.couch.Database;
-import server.couch.designs.Design;
 import server.couch.designs.network.Network;
 
 public class TestCouchProducts {
@@ -51,15 +50,15 @@ public class TestCouchProducts {
             Couch client = context.get("client");
             Database mission = context.get("mission");
 
-            Design design = new Network();
+            Network network = new Network();
 
-
-            // add the configuration to CouchDB
-            mission.putView(design).onSuccess( view -> {
+            network.getDesignDocument().compose( ddoc -> {
+                return mission.putDesign( network.getName(), ddoc );
+            }).onSuccess( design -> {
 
                 // get the products design doc from configuration and Couchdb
-                Future<JsonObject> config = design.getDesignDocument();
-                Future<JsonObject> couch = view.getDesignDocument();
+                Future<JsonObject> config = network.getDesignDocument();
+                Future<JsonObject> couch = design.getDesignDocument();
 
                 // once you have them both
                 CompositeFuture.all( config, couch ).onSuccess( ar -> {

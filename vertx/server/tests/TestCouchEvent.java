@@ -26,15 +26,16 @@ public class TestCouchEvent {
             Couch client = new Couch( vertx,"localhost", 5984);
             client.getSession("admin","Preceptor")
             .compose( token -> {
-
                 // cache the client for subsequest test requests
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
                 return client.putDatabase( TEST_MISSION );
-            })
-            .compose( db -> context.put("db", db) )
-            .onSuccess( v->async.complete() )
+
+            }).onSuccess( db -> {
+                context.put("mission", db);
+                async.complete();
+            } )
             .onFailure( context::fail );
         });
 
