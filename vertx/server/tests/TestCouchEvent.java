@@ -6,9 +6,9 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
-import server.couch.CouchClient;
+import server.couch.Couch;
 import server.couch.Events;
-import server.couch.Mission;
+import server.couch.Database;
 
 public class TestCouchEvent {
 
@@ -24,7 +24,7 @@ public class TestCouchEvent {
             context.put("vertx", vertx);
 
             // get the session token from the database
-            CouchClient client = new CouchClient( vertx,"localhost", 5984);
+            Couch client = new Couch( vertx,"localhost", 5984);
             client.getSession("admin","Preceptor")
             .compose( token -> {
 
@@ -32,7 +32,7 @@ public class TestCouchEvent {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return Mission.put(client, TEST_MISSION );
+                return Database.put(client, TEST_MISSION );
 
                 //TODO add a product so we can test views as well...
             })
@@ -42,7 +42,7 @@ public class TestCouchEvent {
 
         suite.test( "event_crud", context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
 
             String stamp = "YYYY-MM-DDThh:mm:ss.sTZD";
             String source = "file:line";
@@ -80,8 +80,8 @@ public class TestCouchEvent {
         // delete the test mission database, then the client
         suite.after( context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
-            Mission.delete(client, TEST_MISSION)
+            Couch client = context.get("client");
+            Database.delete(client, TEST_MISSION)
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );

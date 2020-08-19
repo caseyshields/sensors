@@ -8,9 +8,9 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
-import server.couch.CouchClient;
-import server.couch.Mission;
-import server.couch.Product;
+import server.couch.Couch;
+import server.couch.Database;
+import server.couch.View;
 import server.couch.designs.Design;
 import server.couch.designs.network.Network;
 
@@ -28,14 +28,14 @@ public class TestCouchProducts {
             context.put("vertx", vertx);
 
             // get the session token from the database
-            CouchClient client = new CouchClient( vertx,"localhost", 5984);
+            Couch client = new Couch( vertx,"localhost", 5984);
             client.getSession("admin","Preceptor").onSuccess( token -> {
 
                 // cache the client for subsequest test requests
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                Mission.put(client, TEST_MISSION )
+                Database.put(client, TEST_MISSION )
                         .onSuccess( v->async.complete() )
                         .onFailure( context::fail );
 
@@ -43,18 +43,18 @@ public class TestCouchProducts {
         });
 
         suite.test("ProductCrud", context -> {
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
             Async result = context.async();
 
             Design design = new Network();
 
 
             // add the configuration to CouchDB
-            Product.put(client, TEST_MISSION, design).onSuccess( v-> {
+            View.put(client, TEST_MISSION, design).onSuccess(v-> {
 
                 // get the products design doc from configuration and Couchdb
                 Future<JsonObject> config = design.getDesignDocument();
-                Future<JsonObject> couch = Product.get(client, TEST_MISSION, design.getName());
+                Future<JsonObject> couch = View.get(client, TEST_MISSION, design.getName());
 
                 // once you have them both
                 CompositeFuture.all( config, couch ).onSuccess( ar -> {
@@ -78,10 +78,10 @@ public class TestCouchProducts {
         // close the session token after we're done with our tests
         suite.after( context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
 
             // delete the test mission database
-            Mission.delete(client, TEST_MISSION)
+            Database.delete(client, TEST_MISSION)
             .onComplete( msg -> {
 
                 // delete the user session

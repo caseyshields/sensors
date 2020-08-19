@@ -5,8 +5,7 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
-import server.couch.CouchClient;
-import server.couch.Mission;
+import server.couch.Couch;
 
 public class TestCouchMissions {
 
@@ -19,7 +18,7 @@ public class TestCouchMissions {
         suite.before( context -> {
             Async async = context.async();
             Vertx vertx = Vertx.vertx();
-            CouchClient client = new CouchClient( vertx,"localhost", 5984);
+            Couch client = new Couch( vertx,"localhost", 5984);
 
             // get the session token from the database
             client.getSession("admin","Preceptor")
@@ -32,11 +31,10 @@ public class TestCouchMissions {
 
         // make sure we can retrieve the mission list
         suite.test("getMissions", context -> {
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
             Async result = context.async();
 
-            Mission.list(client)
-//            client.getMissions()
+            client.list()
             .onSuccess( json -> {
                 String s = json.toString();
                 context.assertTrue( (s.length()>0), s );
@@ -48,14 +46,15 @@ public class TestCouchMissions {
 
         // make sure we can create and remove a database
         suite.test( "missionCrud", context -> {
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
             Async result = context.async();
 
             // add the mission to couch
-            Mission.put(client, TEST_MISSION).compose( v -> {
+            client.put(TEST_MISSION).compose( db -> {
+
 
                 // then try to read it from couch
-                return Mission.get(client, TEST_MISSION);
+                return client.info(TEST_MISSION);
 
             }).compose( json -> {
 
@@ -68,7 +67,7 @@ public class TestCouchMissions {
                 context.assertEquals( json.getLong("doc_del_count"), 0L);
 
                 // then try to delete the database
-                return Mission.delete(client, TEST_MISSION);
+                return client.delete(TEST_MISSION);
             })
             .onSuccess( v-> result.complete() )
             .onFailure( context::fail);
@@ -86,7 +85,7 @@ public class TestCouchMissions {
         // close the session token after we're done with our tests
         suite.after( context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
 
             client.deleteSession()
             .onSuccess( v->async.complete() )

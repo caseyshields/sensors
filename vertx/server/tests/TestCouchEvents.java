@@ -9,10 +9,8 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
-import server.couch.CouchClient;
-import server.couch.Events;
-import server.couch.Mission;
-import server.couch.Product;
+import server.couch.Couch;
+import server.couch.Database;
 import server.couch.designs.Design;
 import server.couch.designs.network.Network;
 
@@ -37,7 +35,7 @@ public class TestCouchEvents {
             context.put( "design", design );
 
             // get the session token from the database
-            CouchClient client = new CouchClient( vertx,"localhost", 5984);
+            Couch client = new Couch( vertx,"localhost", 5984);
             client.getSession("admin","Preceptor")
             .compose( token -> {
 
@@ -45,17 +43,23 @@ public class TestCouchEvents {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return Mission.put(client, TEST_MISSION );
+                return client.put( TEST_MISSION );
 
                 //TODO add a product so we can test views as well...
             })
-            .onSuccess( v->async.complete() )
+            .onSuccess( db -> {
+                // cache the database that was created
+                context.put("db", db);
+
+                async.complete();
+            } )
             .onFailure( context::fail );
         });
 
         suite.test( "event_crud", context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
+            Database db = context.get("db");
             Design design = context.get("design");
 
             // add a hundred test events to the mission database
@@ -64,8 +68,8 @@ public class TestCouchEvents {
 
                 // ordering is lexical so we need to pad numeric values
                 String stamp = String.format("%05d", n*100);
-
                 String source = "sim";
+                String key = stamp+"-"+source;
                 JsonObject event = new JsonObject()
                         .put("time", n*100)
                         .put("stamp", stamp)
@@ -76,11 +80,9 @@ public class TestCouchEvents {
                         .put("tap", "b")
                         .put("angle", n * 2.5 / Math.PI);
                 events.add(
-                        Events.put(client, TEST_MISSION, stamp, source, event)
-                        .onSuccess( json -> {
+                        db.put(key, event).onSuccess( json -> {
                             // make sure the non-couch fields of the events match
                             context.assertTrue( json.getBoolean("ok") );
-                            String key = stamp+"-"+source;
                             context.assertEquals( json.getString("id"), key );
                             context.assertNotNull( json.getString("rev") );
                         })
@@ -92,7 +94,7 @@ public class TestCouchEvents {
                     String start = "00100";
                     String stop = "01000-sim";
 //                    return Events.get(client, TEST_MISSION, start, stop);
-                    return Events.get(client, TEST_MISSION, start, 10);
+                    return db.get(start, 10);
                     // TODO maybe the test should be to make two equivalent queries and match them?
                 } )
                 .onSuccess( json -> {
@@ -119,8 +121,8 @@ public class TestCouchEvents {
         // delete the test mission database, then the client
         suite.after( context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
-            Mission.delete(client, TEST_MISSION)
+            Couch client = context.get("client");
+            client.delete(TEST_MISSION)
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );

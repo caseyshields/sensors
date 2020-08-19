@@ -9,14 +9,13 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.StaticHandler;
-import server.couch.CouchClient;
-import server.couch.Events;
-import server.couch.Mission;
-import server.couch.Product;
+import server.couch.Couch;
+import server.couch.Database;
+import server.couch.View;
 
 public class CaveServer extends AbstractVerticle {
 
-    CouchClient couchdb;
+    Couch couchdb;
 
     public static void main(String[] args) {
         JsonObject config = new JsonObject()
@@ -40,7 +39,7 @@ public class CaveServer extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         // connect to couchdb and obtain a token
-        this.couchdb = new CouchClient( vertx,
+        this.couchdb = new Couch( vertx,
                 config().getString("host"),
                 config().getInteger("port") );
         JsonObject cred = config().getJsonObject("credentials");
@@ -84,7 +83,7 @@ public class CaveServer extends AbstractVerticle {
         response.putHeader("content-type", "Application/json");
 
         // get a list of missions and send it to the client
-        Mission.list(couchdb).onSuccess(json -> response.end(json.toString()) )
+        Database.list(couchdb).onSuccess(json -> response.end(json.toString()) )
 
         // or tell the client what went wrong.
         .onFailure( error -> response.end(error.getMessage()) ); // context.fail( error );
@@ -98,7 +97,7 @@ public class CaveServer extends AbstractVerticle {
         HttpServerRequest request = context.request();
         String umi = request.getParam("mission");
 
-        Product.list(couchdb, umi)
+        View.list(couchdb, umi)
         .onSuccess( json -> response.end(json.toString()) )
         .onFailure( error -> response.end(error.getMessage()) );
     }
@@ -132,7 +131,7 @@ public class CaveServer extends AbstractVerticle {
     }
 
     public void stop(Promise<Void> promise) {
-        this.couchdb.close()
+        this.couchdb.deleteSession()
                 .onSuccess( promise::complete )
                 .onFailure( promise::fail );
     }

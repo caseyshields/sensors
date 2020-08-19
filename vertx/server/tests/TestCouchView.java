@@ -9,16 +9,15 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestOptions;
 import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
-import server.couch.CouchClient;
+import server.couch.Couch;
 import server.couch.Events;
-import server.couch.Mission;
-import server.couch.Product;
+import server.couch.Database;
+import server.couch.View;
 import server.couch.designs.Design;
 import server.couch.designs.network.Network;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Test event creation, and retrieve them using a product view query */
 public class TestCouchView {
@@ -38,7 +37,7 @@ public class TestCouchView {
             context.put( "design", design );
 
             // get the session token from the database
-            CouchClient client = new CouchClient( vertx,"localhost", 5984);
+            Couch client = new Couch( vertx,"localhost", 5984);
             client.getSession("admin","Preceptor")
             .compose( token -> {
 
@@ -46,13 +45,13 @@ public class TestCouchView {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return Mission.put(client, TEST_MISSION );
+                return Database.put(client, TEST_MISSION );
 
                 //TODO add a product so we can test views as well...
             })
             .compose( v-> {
                 // then create a product view to test out
-                return Product.put(client, TEST_MISSION, design);
+                return View.put(client, TEST_MISSION, design);
             })
             .onSuccess( v->async.complete() )
             .onFailure( context::fail );
@@ -60,7 +59,7 @@ public class TestCouchView {
 
         suite.test( "event_crud", context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
+            Couch client = context.get("client");
             Design design = context.get("design");
 
             // add a hundred test events to the mission database
@@ -122,8 +121,8 @@ public class TestCouchView {
         // delete the test mission database, then the client
         suite.after( context -> {
             Async async = context.async();
-            CouchClient client = context.get("client");
-            Mission.delete(client, TEST_MISSION)
+            Couch client = context.get("client");
+            Database.delete(client, TEST_MISSION)
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );
