@@ -41,7 +41,7 @@ public class TestCouchView {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return client.put( TEST_MISSION );
+                return client.putDatabase( TEST_MISSION );
 
             }).compose( mission -> {
                 context.put("mission", mission);
@@ -80,7 +80,7 @@ public class TestCouchView {
                         .put("tap", "b")
                         .put("angle", n);
                 events.add(
-                        mission.put( id, event)
+                        mission.putDoc( id, event)
                         .onSuccess( json -> {
                             // make sure the non-couch fields of the events match
                             context.assertEquals( json.getString("id"), id );
@@ -94,7 +94,7 @@ public class TestCouchView {
                 .compose( v->{
                     String start = "[\"00100\",\"sim\"]";
                     String stop = "[\"01000\",\"sim\"]";
-                    return product.get(start, 10);
+                    return product.getDocs(start, 10);
                 } )
                 .onSuccess( json -> {
 
@@ -125,7 +125,7 @@ public class TestCouchView {
             Couch client = context.get("client");
 
             // deleting the database also deletes all it's documents
-            client.delete(TEST_MISSION)
+            client.deleteDatabase(TEST_MISSION)
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );

@@ -34,7 +34,7 @@ public class TestCouchMissions {
             Couch client = context.get("client");
             Async result = context.async();
 
-            client.list()
+            client.getDatabases()
             .onSuccess( json -> {
                 String s = json.toString();
                 context.assertTrue( (s.length()>0), s );
@@ -50,11 +50,11 @@ public class TestCouchMissions {
             Async result = context.async();
 
             // add the mission to couch
-            client.put(TEST_MISSION).compose( db -> {
+            client.putDatabase(TEST_MISSION).compose(db -> {
 
 
                 // then try to read it from couch
-                return client.info(TEST_MISSION);
+                return client.getDatabaseInfo(TEST_MISSION);
 
             }).compose( json -> {
 
@@ -67,7 +67,7 @@ public class TestCouchMissions {
                 context.assertEquals( json.getLong("doc_del_count"), 0L);
 
                 // then try to delete the database
-                return client.delete(TEST_MISSION);
+                return client.deleteDatabase(TEST_MISSION);
             })
             .onSuccess( v-> result.complete() )
             .onFailure( context::fail);

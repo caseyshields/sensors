@@ -97,7 +97,7 @@ public class Couch {
     /** Fetches a list of mission databases from the CouchDB REST API.
      * https://docs.couchdb.org/en/stable/api/server/common.html#all-dbs
      * @return A json array of available databases as specified in CouchDB API. */
-    public Future<JsonArray> list() {
+    public Future<JsonArray> getDatabases() {
         Promise<JsonArray> promise = Promise.promise();
         request(HttpMethod.GET, "/_all_dbs")
         .as(BodyCodec.jsonArray())
@@ -123,7 +123,7 @@ public class Couch {
     /** Asynchronously produces the database if it exists in CouchDB, otherwise fails.
      * https://docs.couchdb.org/en/stable/api/database/common.html#head--db
      * @return a Future producing the Database */
-    public Future<Database> get(String db) {
+    public Future<Database> getDatabase(String db) {
         Promise<Database> promise = Promise.promise();
 
         request(HttpMethod.HEAD, "/"+db)
@@ -147,7 +147,7 @@ public class Couch {
     /** Creates a new CouchDB database corresponding to the given mission umi using a HTTP Put request.
      * @param db A Unique Mission Identifier
      * https://docs.couchdb.org/en/stable/api/database/common.html#put--db */
-    public Future<Database> put( String db ) {
+    public Future<Database> putDatabase(String db ) {
         Promise<Database> promise = Promise.promise();
 
         request(HttpMethod.PUT, "/" + db)
@@ -172,7 +172,7 @@ public class Couch {
      * https://docs.couchdb.org/en/stable/api/database/common.html#get--db
      * @param db the name of the couchdb database
      * @return A Json Object containing database info as described in CouchDB API documentation*/
-    public Future<JsonObject> info( String db ) {
+    public Future<JsonObject> getDatabaseInfo(String db ) {
         Promise<JsonObject> promise = Promise.promise();
 
         request(HttpMethod.GET, "/"+db)
@@ -192,10 +192,10 @@ public class Couch {
         return promise.future();
     }
 
-    /** Deletes the specified mission database.
+    /** Deletes the specified database, and all of its documents, including design documents
      * https://docs.couchdb.org/en/stable/api/database/common.html#delete--db
      * @param db the name of the database */
-    public Future<Void> delete(String db) {
+    public Future<Void> deleteDatabase(String db) {
         Promise<Void> promise = Promise.promise();
 
         request(HttpMethod.DELETE, "/"+db)

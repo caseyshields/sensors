@@ -10,7 +10,6 @@ import io.vertx.ext.unit.TestSuite;
 import io.vertx.ext.unit.report.ReportOptions;
 import server.couch.Couch;
 import server.couch.Database;
-import server.couch.View;
 import server.couch.designs.Design;
 import server.couch.designs.network.Network;
 
@@ -35,7 +34,7 @@ public class TestCouchProducts {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return client.put( TEST_MISSION );
+                return client.putDatabase( TEST_MISSION );
 
             }).onSuccess( mission-> {
 
@@ -60,7 +59,7 @@ public class TestCouchProducts {
 
                 // get the products design doc from configuration and Couchdb
                 Future<JsonObject> config = design.getDesignDocument();
-                Future<JsonObject> couch = view.get();
+                Future<JsonObject> couch = view.getDesignDocument();
 
                 // once you have them both
                 CompositeFuture.all( config, couch ).onSuccess( ar -> {
@@ -87,7 +86,7 @@ public class TestCouchProducts {
             Couch client = context.get("client");
 
             // delete the test mission database, this will also delete all design documents
-            client.delete( TEST_MISSION ).onComplete( msg -> {
+            client.deleteDatabase( TEST_MISSION ).onComplete(msg -> {
 
                 // delete the user session
                 client.deleteSession()

@@ -43,7 +43,7 @@ public class TestCouchEvents {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return client.put( TEST_MISSION );
+                return client.putDatabase( TEST_MISSION );
 
                 //TODO add a product so we can test views as well...
             })
@@ -80,7 +80,7 @@ public class TestCouchEvents {
                         .put("tap", "b")
                         .put("angle", n * 2.5 / Math.PI);
                 events.add(
-                        db.put(key, event).onSuccess( json -> {
+                        db.putDoc(key, event).onSuccess(json -> {
                             // make sure the non-couch fields of the events match
                             context.assertTrue( json.getBoolean("ok") );
                             context.assertEquals( json.getString("id"), key );
@@ -94,7 +94,7 @@ public class TestCouchEvents {
                     String start = "00100";
                     String stop = "01000-sim";
 //                    return Events.get(client, TEST_MISSION, start, stop);
-                    return db.get(start, 10);
+                    return db.getDocs(start, 10);
                     // TODO maybe the test should be to make two equivalent queries and match them?
                 } )
                 .onSuccess( json -> {
@@ -122,7 +122,7 @@ public class TestCouchEvents {
         suite.after( context -> {
             Async async = context.async();
             Couch client = context.get("client");
-            client.delete(TEST_MISSION)
+            client.deleteDatabase(TEST_MISSION)
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );

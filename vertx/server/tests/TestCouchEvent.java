@@ -31,7 +31,7 @@ public class TestCouchEvent {
                 context.put("client", client);
 
                 // then create a test database for the products to be tested on
-                return client.put( TEST_MISSION );
+                return client.putDatabase( TEST_MISSION );
             })
             .compose( db -> context.put("db", db) )
             .onSuccess( v->async.complete() )
@@ -54,14 +54,14 @@ public class TestCouchEvent {
             // should I make a fake project or should I make another simulator for product 2 in Java?....
 
             // add an event to the test database
-            mission.put(id, event).compose( json -> {
+            mission.putDoc(id, event).compose(json -> {
 
                 // make sure the id matches and we got some revision number
                 context.assertEquals(json.getBoolean("ok"), true);
                 context.assertNotNull(json.getString("rev")); // maybe cache this so we can test performing an update?
 
                 // read the event from the test database
-                return mission.get(id);
+                return mission.getDoc(id);
 
             }).onSuccess( json -> {
 
@@ -80,7 +80,7 @@ public class TestCouchEvent {
         suite.after( context -> {
             Async async = context.async();
             Couch client = context.get("client");
-            client.delete( TEST_MISSION )
+            client.deleteDatabase( TEST_MISSION )
                 .compose( v-> client.deleteSession() )
                 .onSuccess( v-> async.complete() )
                 .onFailure( context::fail );
