@@ -41,23 +41,23 @@ public class TestCouchView {
                 return client.putDatabase( TEST_MISSION );
 
             }).compose( mission -> {
-                        context.put("mission", mission);
+                context.put("mission", mission);
 
-                        // load a design document
-                        Network network = new Network();
-                        return network.getDesignDocument().compose( ddoc -> {
+                // load a design document
+                Network network = new Network();
+                return network.getDesignDocument().compose( ddoc -> {
 
-                            // and add it to the database
-                            return mission.putDesign(network.getName(), ddoc);
-                        } );// need both mission and ddoc futures in scope hence this nested compose... is ther a clearer way?
+                    // and add it to the database
+                    return mission.putDesign(network.getName(), ddoc);
+                } );// need both mission and ddoc futures in scope hence this nested compose... is ther a clearer way?
 
             }).onSuccess( design -> {
 
                 // cache the design
                 context.put("design", design);
                 async.complete();
-            } )
-            .onFailure( context::fail );
+
+            } ).onFailure( context::fail );
         });
 
         suite.test( "event_crud", context -> {

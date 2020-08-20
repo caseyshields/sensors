@@ -15,6 +15,7 @@ public class View {
     String db;
     String view;
 
+    /** All CouchDB databases provide a default view of all documents keyed by their IDs. */
     public static final String DefaultView = "/_all_docs";
 
     /** Creates a client for the default view of the database, '_all_docs'

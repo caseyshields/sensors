@@ -13,11 +13,8 @@ public class Network {
     /** this should be the name provided to the design document in the mission database */
     public static final String DESIGN_NAME = "network";
 
+    /** Provide a chronological view of network events in [time, source] order */
     public static final String DefaultView = "events";
-
-    /** By convention each design should contain a default view named 'events'.
-     * It should provide a chronological view of events in [time, source] order */
-    static final String DEFAULT_VIEW = "events";
 
     /** This script contains a map function for the default event view */
     static final String EVENT_SCRIPT = "vertx\\server\\couch\\designs\\network\\events.map.js";
@@ -41,7 +38,7 @@ public class Network {
             JsonObject design = new JsonObject()
                     .put("language", "javascript")
                     .put("views", new JsonObject()
-                                    .put( DEFAULT_VIEW, new JsonObject()
+                                    .put( DefaultView, new JsonObject()
                                             .put("map", script)
                                     )
                             // we might add another map-reduce script here for calculating some MOP...
